@@ -1,0 +1,12 @@
+mlflow[extras]==2.8.1
+psycopg2
+jupyterlab
+jupyterlab-git
+pylint
+pytest
+black
+ydata-profiling[notebook]==4.6.2
+pandas==2.1.3
+matplotlib
+seaborn
+ipywidgets
