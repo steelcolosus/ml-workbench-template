@@ -6,8 +6,8 @@ export
 PYTHONPATH= .
 SHELL := /bin/bash
 USER_NAME := $(shell whoami)
-PYTHON_VERSION=$(shell python3 -c 'import sys; print("{0}.{1}".format(sys.version_info[0], sys.version_info[1]))')
-PYTHON_PATH=$(shell which python3)
+PYTHON_VERSION=$(shell {{cookiecutter.python_interpreter}} -c 'import sys; print("{0}.{1}".format(sys.version_info[0], sys.version_info[1]))')
+PYTHON_PATH=$(shell which {{cookiecutter.python_interpreter}})
 
 CURRENT_DIRECTORY:=$(shell pwd)
 INSTALL_DIRECTORY:=$(CURRENT_DIRECTORY)/.venv
