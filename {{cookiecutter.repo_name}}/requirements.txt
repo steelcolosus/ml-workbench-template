@@ -10,3 +10,9 @@ pandas==2.0.3
 matplotlib
 seaborn
 ipywidgets
+statsmodels
+scikit-learn
+omegaconf
+hydra-joblib-launcher
+hydra-core
+cookiecutter

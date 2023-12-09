@@ -1,0 +1,6 @@
+# python version requiered to run the project
+python: "3.10.6"
+build_dependencies:
+    - pip
+dependencies:
+    - -r requirements.txt
