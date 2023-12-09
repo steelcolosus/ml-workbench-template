@@ -5,8 +5,8 @@ jupyterlab-git
 pylint
 pytest
 black
-ydata-profiling[notebook]==4.6.2
-pandas==2.0.3
+ydata-profiling[notebook]
+pandas
 matplotlib
 seaborn
 ipywidgets
