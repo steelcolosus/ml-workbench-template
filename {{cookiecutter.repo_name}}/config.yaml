@@ -2,8 +2,8 @@ main:
     # components_repository: "https://github.com/steelcolosus/ml-devops-build-ml-pipeline-for-short-term-rental-prices#components"
     # All the intermediate files will be copied to this directory at the end of the run.
     # Set this to null if you are running in prod
-    project_name: { { cookiecutter.repo_name } }
-    experiment_name: development
+    project_name: {{cookiecutter.repo_name}}
+    experiment_name: {{experiment_name}}
     steps: all
 data_check:
     kl_threshold: 0.2
