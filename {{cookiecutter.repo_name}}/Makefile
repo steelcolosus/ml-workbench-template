@@ -15,6 +15,8 @@ EXEC_PATH:=$(INSTALL_DIRECTORY)/bin/
 
 variables := PYTHONPATH USER_NAME PYTHON_VERSION PYTHON_PATH CURRENT_DIRECTORY INSTALL_DIRECTORY EXEC_PATH
 
+STEP_REPO:=git@github.com:steelcolosus/mlflow-step-template.git
+
 # Colors
 RESET := $(shell tput sgr0)
 RED := $(shell tput setaf 1)
@@ -100,3 +102,7 @@ ${MLFLOW_ARTIFACT_STORE}:
 
 ${POSTGRES_VOLUME}:
 	mkdir -p ${POSTGRES_VOLUME}
+
+
+step:
+	$(CC) ${STEP_REPO} -o ./src

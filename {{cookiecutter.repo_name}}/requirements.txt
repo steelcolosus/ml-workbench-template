@@ -16,3 +16,5 @@ omegaconf
 hydra-joblib-launcher
 hydra-core
 cookiecutter
+boto3
+python-dotenv
