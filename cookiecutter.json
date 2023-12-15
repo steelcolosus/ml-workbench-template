@@ -2,7 +2,7 @@
     "project_name": "ML Project",
     "repo_name": "{{ cookiecutter.project_name.lower().replace(' ', '_') }}",
     "author_name": "eduardoaviles",
-    "experiment_name": "development",
+    "experiment_name": "dev",
     "description": "A project to do ML stuff",
     "open_source_license": ["MIT", "BSD-3-Clause", "No license file"],
     "s3_bucket": "bucket_name",
