@@ -1,11 +1,12 @@
 import json
+import logging
 import os
 import tempfile
+from pdb import run
 
 import dotenv
 import hydra
 import mlflow
-import wandb
 from omegaconf import DictConfig
 
 _steps = [
@@ -16,6 +17,9 @@ _steps = [
     'preprocessing',
 ]
 
+# This automatically reads in the configuration
+logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
+logger = logging.getLogger()
 # Load environment variables
 dotenv.load_dotenv()
 # This automatically reads in the configuration
@@ -45,7 +49,9 @@ def go(config: DictConfig):
         'processed'
     )
     # Move to a temporary directory
-    with mlflow.start_run(run_name=f" {config['main']['project_name']} - {config['main']['experiment_name']}"):
+    run_name = f"{config['main']['project_name']}_{config['main']['experiment_name']}"
+    with mlflow.start_run(run_name=run_name):
+        mlflow.set_tag("mlflow.runName", run_name)
         with tempfile.TemporaryDirectory() as tmp_dir:
 
             if "get_data" in active_steps:
