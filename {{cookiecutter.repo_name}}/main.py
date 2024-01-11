@@ -49,9 +49,12 @@ def go(config: DictConfig):
         'processed'
     )
     # Move to a temporary directory
-    run_name = f"{config['main']['project_name']}_{config['main']['experiment_name']}"
-    with mlflow.start_run(run_name=run_name):
-        mlflow.set_tag("mlflow.runName", run_name)
+    experiment_name = f"{config['main']['project_name']}_{config['main']['experiment_name']}"
+
+    mlflow.set_experiment(experiment_name)
+
+    with mlflow.start_run():
+
         with tempfile.TemporaryDirectory() as tmp_dir:
 
             if "get_data" in active_steps:

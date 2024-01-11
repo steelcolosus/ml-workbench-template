@@ -41,8 +41,11 @@ default: clean setup docker-compose run##@Development Run all
 
 setup:${MLFLOW_ARTIFACT_STORE} ${POSTGRES_VOLUME} venv  ##@Development setup environment and stores
 
+# run mlflow-server
+run: ##@Development Run mlflow-server
+	$(MAKE) mlflow-server
 # run all
-run: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
+run-all: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
 	$(MAKE) -j 2 mlflow-server jupyter-notebook
 
 # Create virtual environment
@@ -64,6 +67,9 @@ mlflow-server: ##@Development Run mlflow server
 		--host ${MLFLOW_TRACKING_SERVER_HOST} \
 		--port ${MLFLOW_TRACKING_SERVER_PORT}
 
+mlflow-kill: ##@Development Kill mlflow server
+	kill -9 $(shell lsof -t -i:${MLFLOW_TRACKING_SERVER_PORT})
+
 #run jupyter notebook
 jupyter-notebook: ##@Development Run jupyter notebook
 	$(EXEC_PATH)jupyter-lab --NotebookApp.iopub_msg_rate_limit=100000000
@@ -71,7 +77,7 @@ jupyter-notebook: ##@Development Run jupyter notebook
 
 purge: clean-all
 clean: down prune
-clean-all:  down prune clean-stores clean-python
+clean-all:  down prune clean-stores clean-python mlflow-kill
 clean-stores:
 	sudo rm -rf ./${MLFLOW_ARTIFACT_STORE} ./${POSTGRES_VOLUME}
 clean-python:
