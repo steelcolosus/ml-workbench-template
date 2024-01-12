@@ -20,17 +20,18 @@ def go(args):
     with open("config.yaml") as fp:
         model_config = yaml.safe_load(fp)
 
-    experiment_name = f"{model_config['main']['project_name']}_{model_config['main']['experiment_name']}"
+    project_name = model_config['main']['project_name']
+    experiment_name = f"{project_name}_{model_config['main']['experiment_name']}"
 
     mlflow.set_experiment(experiment_name)
-    with mlflow.start_run(run_name="Main") as mlrun:
+    with mlflow.start_run(run_name=f"{project_name}_pipeline") as mlrun:
         with tempfile.TemporaryDirectory() as tmp_dir:
             _ = mlflow.run(
                 ".",
                 "main",
                 parameters={
-                    'steps': steps if steps else "all",
-                    'hydra_options': hydra_options if hydra_options else '',
+                    'steps': steps,
+                    'hydra_options': hydra_options,
                 },
                 run_id=mlrun.info.run_id,
 
@@ -45,6 +46,7 @@ if __name__ == "__main__":
         "--steps",
         type=str,  # INSERT TYPE HERE: str, float or int,
         help="coma separated steps",  # INSERT DESCRIPTION HERE,
+        default="all",
         required=False
     )
 
@@ -52,6 +54,7 @@ if __name__ == "__main__":
         "--hydra_options",
         type=str,  # INSERT TYPE HERE: str, float or int,
         help="Hydra options",  # INSERT DESCRIPTION HERE,
+        default="",
         required=False
     )
 
