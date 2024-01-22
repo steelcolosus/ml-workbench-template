@@ -58,6 +58,19 @@ if __name__ == "__main__":
         required=False
     )
 
+    parser.add_argument(
+        "--local",
+        type=bool,  # INSERT TYPE HERE: str, float or int,
+        help="Run experiment locally without tracking server",
+        default=False,
+        required=False
+    )
+
+    args = parser.parse_args()
+    is_local = args.local
+    if not is_local:
+        dotenv.load_dotenv()
+
     args = parser.parse_args()
 
     go(args)
