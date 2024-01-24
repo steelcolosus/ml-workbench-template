@@ -30,6 +30,7 @@ PYTHON := $(EXEC_PATH)python3
 MLFLOW := $(EXEC_PATH)mlflow
 PYTEST := $(PYTHON) -m pytest
 VENV:= python3 -m venv
+CC := $(EXEC_PATH)cookiecutter
 
 PRUNE_OPTS = -f
 DOWN_OPTS = --remove-orphans
