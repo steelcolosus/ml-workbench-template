@@ -25,7 +25,7 @@ dotenv.load_dotenv()
 # This automatically reads in the configuration
 
 
-@hydra.main(config_name='config')
+@hydra.main(config_name='config',  config_path=".", version_base="1.1")
 def go(config: DictConfig):
 
     # Steps to execute
@@ -35,6 +35,10 @@ def go(config: DictConfig):
     config_path = os.path.join(
         root_path,
         "config.yaml"
+    )
+    model_path = os.path.join(
+        root_path,
+        'models'
     )
     data_path = os.path.join(
         root_path,
@@ -52,7 +56,7 @@ def go(config: DictConfig):
     experiment_name = f"{config['main']['project_name']}_{config['main']['experiment_name']}"
 
     mlflow.set_experiment(experiment_name)
-
+    env_manager = "local"
     with mlflow.start_run():
 
         with tempfile.TemporaryDirectory() as tmp_dir:

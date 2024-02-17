@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import tempfile
 
 import dotenv
@@ -10,7 +11,9 @@ import yaml
 logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
 logger = logging.getLogger()
 # Load environment variables
-dotenv.load_dotenv()
+parent_dir = os.path.dirname(os.path.abspath(__file__))
+# Add it to PYTHONPATH
+os.environ['PYTHONPATH'] = parent_dir
 
 
 def go(args):
@@ -22,7 +25,7 @@ def go(args):
 
     project_name = model_config['main']['project_name']
     experiment_name = f"{project_name}_{model_config['main']['experiment_name']}"
-
+    env_manager = "local" if args.local else "virtualenv"
     mlflow.set_experiment(experiment_name)
     with mlflow.start_run(run_name=f"{project_name}_pipeline") as mlrun:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -33,6 +36,7 @@ def go(args):
                     'steps': steps,
                     'hydra_options': hydra_options,
                 },
+                env_manager=env_manager,
                 run_id=mlrun.info.run_id,
 
             )
