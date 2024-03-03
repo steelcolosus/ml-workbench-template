@@ -1,4 +1,25 @@
-include .env
+# Check if ENV is set
+ifndef ENV
+$(error ENV is not set. Please set ENV to dev, beta, or prod.)
+endif
+
+# Based on the env value, set the appropriate .env file
+ifeq ($(ENV),prod)
+ENV_FILE := .env.prod
+else ifeq ($(ENV),beta)
+ENV_FILE := .env.beta
+else ifeq ($(ENV),dev)
+ENV_FILE := .env
+else
+$(error Unknown env value $(ENV). Please set env to dev, beta, or prod.)
+endif
+
+# Output the env value and which environment file is being used
+$(info Using environment: $(ENV))
+$(info Loading configuration from file: $(ENV_FILE))
+
+# Include the environment file if it exists
+include $(ENV_FILE)
 
 export
 
