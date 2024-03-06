@@ -37,7 +37,7 @@ EXEC_PATH:=$(INSTALL_DIRECTORY)/bin/
 variables := PYTHONPATH USER_NAME PYTHON_VERSION PYTHON_PATH CURRENT_DIRECTORY INSTALL_DIRECTORY EXEC_PATH
 
 #STEP_REPO:=git@github.com:steelcolosus/mlflow-step-template.git
-STEP_PATH:=$(CURRENT_DIRECTORY)/lib/templates/mlflow-step
+STEP_PATH:=$(CURRENT_DIRECTORY)/libs/templates/mlflow_step
 
 # Colors
 RESET := $(shell tput sgr0)
@@ -135,3 +135,6 @@ ${POSTGRES_VOLUME}:
 
 step:
 	$(CC) ${STEP_PATH} -o ./src
+
+login: ##@Development Login to AWS SSO
+	aws sso login --profile ${AWS_PROFILE}
