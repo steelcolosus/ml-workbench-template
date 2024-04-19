@@ -1,0 +1,14 @@
+name: {{cookiecutter.step_name}}
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+{% for arg_name in cookiecutter.parameters.split(",") %}
+      {{arg_name.strip()}}:
+          description: ## ADD DESCRIPTION
+          type: string
+{% endfor %}
+
+    command: >-
+        python {{cookiecutter.script_name}} {% for n in cookiecutter.parameters.split(",") %} --{{n.strip()}} {{"{"}}{{n.strip()}}{{"}"}} {% endfor %}
