@@ -1,0 +1,6 @@
+# python version requiered to run the project
+python: {{cookiecutter.python_version}}
+build_dependencies:
+  - pip
+dependencies:
+  - -r requirements.txt
