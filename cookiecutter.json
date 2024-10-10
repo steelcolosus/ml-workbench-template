@@ -8,5 +8,6 @@
     "s3_bucket": "bucket_name",
     "aws_profile": "default",
     "aws_region": "us-east-1",
-    "python_interpreter": ["python3", "python"]
+    "python_interpreter": ["python3", "python"],
+    "python_version": ""
 }
