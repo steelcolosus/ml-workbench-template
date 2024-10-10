@@ -11,6 +11,6 @@
     "python_interpreter": ["python3", "python"],
     "python_version": "",
     "_copy_without_render": [
-        "libs/templates/"
+        "libs/templates*"
     ]
 }
