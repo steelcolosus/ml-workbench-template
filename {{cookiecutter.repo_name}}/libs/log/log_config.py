@@ -1,4 +1,5 @@
 import logging
+import logging.config
 
 
 def get_logger(name):
@@ -11,23 +12,17 @@ def get_log_config():
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
-            "simple": {
-                "format": "%(asctime)s [%(levelname)s][%(name)s] %(message)s"
-            }
+            "simple": {"format": "%(asctime)s [%(levelname)s][%(name)s] %(message)s"}
         },
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
                 "level": "DEBUG",
                 "formatter": "simple",
-                "stream": "ext://sys.stdout"
+                "stream": "ext://sys.stdout",
             }
         },
         "loggers": {
-            "": {
-                "level": logging.INFO,
-                "handlers": ["console"],
-                "propagate": True
-            }
-        }
+            "": {"level": logging.INFO, "handlers": ["console"], "propagate": True}
+        },
     }
