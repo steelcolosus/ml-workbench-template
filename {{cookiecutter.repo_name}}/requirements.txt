@@ -1,5 +1,5 @@
-mlflow[extras]==2.8.1
-psycopg2
+mlflow[extras]
+psycopg2-binary
 jupyterlab
 jupyterlab-git
 pylint
