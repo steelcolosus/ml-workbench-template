@@ -76,7 +76,7 @@ venv: ##@Development Create virtual environment
 	$(VENV) $(INSTALL_DIRECTORY)
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
-
+	$(PYTHON) set_versions.py
 # run docker compose
 docker-compose: ##@Development Run docker compose
 	docker compose up -d
