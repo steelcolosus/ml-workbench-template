@@ -1,12 +1,9 @@
-import json
-import logging
 import os
 import tempfile
-from pdb import run
 
-import dotenv
 import hydra
-import mlflow
+from libs.log.log_config import get_logger
+from libs.mlflow_runtime import configure_tracking, managed_run
 from omegaconf import DictConfig
 
 _steps = [
@@ -18,14 +15,10 @@ _steps = [
 ]
 
 # This automatically reads in the configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)-15s %(message)s")
-logger = logging.getLogger()
-# Load environment variables
-dotenv.load_dotenv()
-# This automatically reads in the configuration
+logger = get_logger("MAIN")
 
 
-@hydra.main(config_name='config',  config_path=".", version_base="1.1")
+@hydra.main(config_name='config',  config_path=".", version_base=None)
 def go(config: DictConfig):
 
     # Steps to execute
@@ -52,36 +45,54 @@ def go(config: DictConfig):
         data_path,
         'processed'
     )
+
+    is_local = bool(config.get("launcher", {}).get("local", False))
+    tracking_uri = configure_tracking(root_path=root_path, is_local=is_local)
+
     # Move to a temporary directory
-    experiment_name = f"{config['main']['project_name']}_{config['main']['experiment_name']}"
+    experiment_name = (
+        f"{config['main']['project_name']}_"
+        f"{config['main']['experiment_name']}"
+    )
+    env_manager = "local" if is_local else "configured"
 
-    mlflow.set_experiment(experiment_name)
-    env_manager = "local"
-    with mlflow.start_run():
+    logger.info(f"Running the following steps: {active_steps}")
+    logger.info(f"Experiment name: {experiment_name}")
+    logger.info(f"Environment manager: {env_manager}")
+    logger.info(f"Root path: {root_path}")
+    logger.info(f"Config path: {config_path}")
+    logger.info(f"Model path: {model_path}")
+    logger.info(f"Data path: {data_path}")
+    logger.info(f"Raw data path: {raw_data}")
+    logger.info(f"Processed data path: {processed_data}")
+    logger.info(f"MLflow tracking URI: {tracking_uri}")
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
+    with managed_run(experiment_name=experiment_name) as run:
+        logger.info(f"MLflow run ID: {run.info.run_id}")
+
+        with tempfile.TemporaryDirectory():
 
             if "get_data" in active_steps:
-                # Download file and load in W&B
-                pass
+                # Download file and load
+                logger.info("Getting data")
 
             if "basic_cleaning" in active_steps:
                 ##################
                 # Implement here #
                 ##################
-                pass
+                logger.info("Basic cleaning")
 
             if "data_check" in active_steps:
                 ##################
                 # Implement here #
                 ##################
-                pass
+                logger.info("Data check")
 
             if "preprocessing" in active_steps:
                 ##################
                 # Implement here #
                 ##################
-                pass
+                logger.info("Preprocessing")
 
 
 if __name__ == "__main__":
