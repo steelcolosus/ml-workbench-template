@@ -102,18 +102,44 @@ Dependencies live in `pyproject.toml` and their exact versions in `uv.lock`:
 Each step is an MLflow project in `src/steps/<step>`:
 
 1. Create it with `make step`. It asks for the step's name and parameters (`input_artifact,output_artifact` by default) and prints what to add to `main.py` and `config.yaml`; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts. See `templates/step/README.md`.
-2. Add its name to `_steps` in `main.py`, in execution order.
-3. Add a section with the same name to `config.yaml`. Every key in it is passed to the step as a parameter:
+2. Add its name to `_steps` in `main.py`, in execution order, and run it in its own block (the step's hook prints this block):
+
+```python
+        if "basic_cleaning" in active_steps:
+            runner.run(
+                "basic_cleaning",
+                input_artifact=config["basic_cleaning"]["input_artifact"],
+                output_artifact=config["basic_cleaning"]["output_artifact"],
+            )
+```
+
+3. Add its section to `config.yaml`:
 
 ```yaml
 basic_cleaning:
-    input_artifact: listings.csv
+    input_artifact: ${get_data.output_artifact}   # chained to the previous step
     output_artifact: clean.parquet
+    min_price: 10
+    max_price: 350
 
-data_check:
-    input_artifact: ${basic_cleaning.output_artifact}   # chained to the previous step
-    output_artifact: data_check.html
+preprocessing:
+    input_artifact: ${basic_cleaning.output_artifact}
+    output_artifact: features.parquet
+    aggregations:                                  # nested values work too
+        - column: price
+          name: avg_price
+          aggfunc: mean
 ```
+
+`runner.run(step, run_name=None, **parameters)` (`libs.pipeline.StepRunner`):
+
+-   writes the step's whole section to a YAML file and passes its path as `config_path`; the step reads it as `self.config`;
+-   passes the keyword arguments as MLflow parameters, so they show up in the MLflow UI;
+-   names the MLflow run after the step (or `run_name`) and nests it under the pipeline run;
+-   gives the step the resolved store config, `ARGS` overrides such as `store.sync_s3=true` included;
+-   skips a step whose folder doesn't exist yet, with a warning.
+
+Each block can do whatever that step needs: pass other parameters, a different `run_name`, or run only under some condition.
 
 ### Writing a step
 

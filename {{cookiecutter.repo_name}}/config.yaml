@@ -42,13 +42,20 @@ store:
         #     bucket: analytics-bucket
         #     prefix: team-x/{{cookiecutter.repo_name}}
 
-# Step parameters: one section per step in main.py's _steps. Every key is passed
-# to the step's MLproject as a parameter, e.g.:
-#
-# basic_cleaning:
-#     input_artifact: listings.csv
-#     output_artifact: clean.parquet
-#
-# data_check:
-#     input_artifact: ${basic_cleaning.output_artifact}
-#     output_artifact: data_check.html
+# Steps: one section per step in main.py's _steps. The whole section, nested
+# values included, is the step's self.config; main.py also passes the values it
+# picks (the artifacts) as MLflow parameters. ${...} chains a step's input to the
+# previous step's output.
+get_data:
+    output_artifact: raw_data.csv
+
+basic_cleaning:
+    input_artifact: ${get_data.output_artifact}
+    output_artifact: clean_data.parquet
+
+data_check:
+    input_artifact: ${basic_cleaning.output_artifact}
+
+preprocessing:
+    input_artifact: ${basic_cleaning.output_artifact}
+    output_artifact: features.parquet

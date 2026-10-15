@@ -19,11 +19,12 @@ def load_config(str_conf: str) -> dict:
 
 def serialize_config(config: dict, output_path: str):
     """
-    Serialize a config object to a file
+    Serialize a config object (dict or OmegaConf node) to a YAML file, with its
+    ${...} references resolved so the file can be loaded on its own
     """
     config_path = os.path.abspath(output_path)
     with open(config_path, "w+") as fp:
-        fp.write(OmegaConf.to_yaml(config))
+        fp.write(OmegaConf.to_yaml(config, resolve=True))
 
     return config_path
 
