@@ -1,14 +1,19 @@
-name: {{cookiecutter.step_name}}
+{%- set params = cookiecutter.parameters.replace(" ", "").split(",") | reject("equalto", "") | reject("equalto", "config_path") | list -%}
+name: {{ cookiecutter.step_name }}
 python_env: python_env.yaml
 
 entry_points:
   main:
     parameters:
-{% for arg_name in cookiecutter.parameters.split(",") %}
-      {{arg_name.strip()}}:
-          description: ## ADD DESCRIPTION
-          type: string
-{% endfor %}
+      config_path:
+        description: YAML with this step's config section, written by main.py (empty = its section of config.yaml)
+        type: string
+        default: ""
+{%- for name in params %}
+      {{ name }}:
+        description: ""  # ADD DESCRIPTION
+        type: string
+{%- endfor %}
 
     command: >-
-        python {{cookiecutter.script_name}} {% for n in cookiecutter.parameters.split(",") %} --{{n.strip()}} {{"{"}}{{n.strip()}}{{"}"}} {% endfor %}
+      python {{ cookiecutter.script_name }} --config_path {config_path}{% for name in params %} --{{ name }} {{ "{" }}{{ name }}{{ "}" }}{% endfor %}

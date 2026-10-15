@@ -28,6 +28,7 @@ import yaml
 
 from core.store.engines import DataEngine, default_engines, infer_format
 from core.store.remote import RemoteStorage, S3Storage
+from utils.config import find_project_config
 from utils.files import remove_path, replace_path, tmp_sibling
 from utils.log import get_logger
 
@@ -36,7 +37,6 @@ logger = get_logger("STORE")
 # Path of a YAML file with the resolved store config. main.py sets it so that
 # steps launched with `mlflow run` see the same config, CLI overrides included.
 STORE_CONFIG_ENV = "STORE_CONFIG"
-PROJECT_CONFIG = "config.yaml"
 LOCATION_KEYS = {"path", "bucket", "prefix"}
 
 
@@ -158,8 +158,10 @@ class Store:
                 OmegaConf.load(config_file), base_dir=Path(config_file).parent, **kwargs
             )
 
-        project_config = _find_project_config()
+        project_config = find_project_config()
         config = OmegaConf.load(project_config)
+        if "store" not in config:
+            raise KeyError(f"{project_config} has no `store` section")
         return cls.from_config(config.store, base_dir=project_config.parent, **kwargs)
 
     def to_dict(self) -> dict:
@@ -423,17 +425,3 @@ def _clean_name(name) -> str:
 
 def _is_glob(name: str) -> bool:
     return any(char in name for char in "*?[")
-
-
-def _find_project_config() -> Path:
-    from omegaconf import OmegaConf
-
-    start = Path(os.environ.get("PROJECT_ROOT") or os.getcwd()).resolve()
-    for folder in (start, *start.parents):
-        candidate = folder / PROJECT_CONFIG
-        if candidate.is_file() and "store" in OmegaConf.load(candidate):
-            return candidate
-    raise FileNotFoundError(
-        f"No {PROJECT_CONFIG} with a `store` section found in {start} or its "
-        f"parents. Run from the project or set ${STORE_CONFIG_ENV}/$PROJECT_ROOT."
-    )

@@ -1,19 +1,26 @@
-# Cookiecutter template for MLFlow steps
+# Cookiecutter template for pipeline steps
 
-Using this template you can quickly generate new steps to be used with MLFlow.
+`make step` uses this template to create a step in `src/steps/<step_name>`: an MLflow project whose `run.py` subclasses `core.step.Step`.
 
-# Usage
-Run the command:
+## Prompts
 
-```
-> cookiecutter [path to this repo] -o [destination directory]
-```
+| Prompt | Used for |
+|---|---|
+| `step_name` | Folder name, config section name and class name (`data_check` → `DataCheck`). Must be snake_case. |
+| `script_name` | The step's script (default `run.py`). |
+| `short_description` | The class docstring. |
+| `long_description` | The module docstring. |
+| `parameters` | Comma-separated parameter names, e.g. `input_artifact,reference_artifact`. They become MLproject parameters and `add_arguments` in `run.py`. Leave it empty for a step without parameters. |
+| `python_version` | The step's `python_env.yaml` (the Makefile passes the project's version). |
 
-and follow the prompt. The tool will ask for the step name, the script name, the description and so on. It will
-also ask for the parameters of the script. This should be a comma-separated list of parameter names *without spaces*. 
-After you are done, you will find a new directory with the provided step name containing a stub of a new MLflow step.
+`config_path` is added to every step automatically (with an empty default, so `mlflow run` works without it): main.py passes the step's config section in that file, and without it the step reads its section of `config.yaml`. Don't list it in `parameters`.
 
-You will need to edit both the script and the MLproject files to fill in the type and the help for the parameters.
-The step's `requirements.txt` installs the project itself (the packages in `src/` and the
-dependencies in `pyproject.toml`). Packages that only this step needs go below it; packages
-the whole project uses go in `pyproject.toml` (`uv add <package>`).
+A hook stops the generation when `step_name` or a parameter isn't a valid snake_case name, and another one prints the block to add to `main.py` and the section to add to `config.yaml` after the step is created.
+
+Skip the prompts with `make step ARGS="--no-input step_name=data_check parameters=input_artifact,reference_artifact"`.
+
+## Generated files
+
+-   `MLproject`: the parameters, all `type: string`. Set their types and descriptions.
+-   `run.py`: the `Step` subclass. Set the argument types and help in `add_arguments` and implement `run()`.
+-   `python_env.yaml` and `requirements.txt`: used when the pipeline runs with `launcher.env_manager=uv` or `virtualenv`. The step's `requirements.txt` installs the project itself (the packages in `src/` and the dependencies in `pyproject.toml`). Packages that only this step needs go below it; packages the whole project uses go in `pyproject.toml` (`uv add <package>`).

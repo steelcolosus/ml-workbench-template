@@ -101,7 +101,7 @@ Dependencies live in `pyproject.toml` and their exact versions in `uv.lock`:
 
 Each step is an MLflow project in `src/steps/<step>`:
 
-1. Create it with `make step` (it gets `input_artifact` and `output_artifact` parameters by default; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts).
+1. Create it with `make step`. It asks for the step's name and parameters (`input_artifact,output_artifact` by default) and prints what to add to `main.py` and `config.yaml`; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts. See `templates/step/README.md`.
 2. Add its name to `_steps` in `main.py`, in execution order.
 3. Add a section with the same name to `config.yaml`. Every key in it is passed to the step as a parameter:
 
@@ -114,6 +114,43 @@ data_check:
     input_artifact: ${basic_cleaning.output_artifact}   # chained to the previous step
     output_artifact: data_check.html
 ```
+
+### Writing a step
+
+A step's `run.py` subclasses `core.step.Step`:
+
+```python
+from core.step import Step
+
+
+class BasicCleaning(Step):
+    """Drop rows outside the price range"""
+
+    @classmethod
+    def add_arguments(cls, parser):
+        # The same parameters as in the step's MLproject
+        parser.add_argument("--input_artifact", type=str, required=True)
+        parser.add_argument("--output_artifact", type=str, required=True)
+
+    def run(self):
+        df = self.store.load_data("raw", self.args.input_artifact)
+        df = df[df["price"].between(self.config.min_price, self.config.max_price)]
+        self.store.save_data("processed", self.args.output_artifact, df)
+        self.logger.info(f"Kept {len(df)} rows")
+
+
+if __name__ == "__main__":
+    BasicCleaning.main()
+```
+
+`main()` gives `run()` everything it needs:
+
+-   `self.args`: the parameters declared in `add_arguments`, plus `config_path`, which every step gets.
+-   `self.config`: the step's config section, nested values included. It comes from the file main.py passes as `config_path` or, when the step runs on its own, from its section of `config.yaml` with `${...}` resolved.
+-   `self.store` and `self.logger`.
+-   `run()` runs inside the step's MLflow run, which records the config it ran with (`step_config.yaml`). An exception fails the run and the pipeline.
+
+The step's name is its folder name, which is also its config section; set `name = "..."` on the class to change it.
 
 ### Step environments
 
