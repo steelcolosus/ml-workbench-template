@@ -1,9 +1,15 @@
 import logging
 import logging.config
 
+_configured = False
+
 
 def get_logger(name):
-    logging.config.dictConfig(get_log_config())
+    # Configure logging once per process, not on every call
+    global _configured
+    if not _configured:
+        logging.config.dictConfig(get_log_config())
+        _configured = True
     return logging.getLogger(name)
 
 

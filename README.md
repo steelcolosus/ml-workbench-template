@@ -7,8 +7,10 @@ Using this template you can quickly generate your basic ML workbench
 Run the command:
 
 ```
-> cookiecutter [path to this repo] -o [destination directory]
+> uvx cookiecutter [path to this repo] -o [destination directory]
 ```
+
+The generated project uses [uv](https://docs.astral.sh/uv/): run `make venv` inside it to create the environment.
 
 and follow the prompt. The tool will ask for the step name, the script name, the description and so on. It will
 also ask for the parameters of the script. This should be a comma-separated list of parameter names _without spaces_.

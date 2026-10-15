@@ -1,1 +1,7 @@
-mlflow==2.10.2
+# Used when the pipeline runs with launcher.env_manager=uv or virtualenv.
+# The project (libs/, src/shared/ and the dependencies in pyproject.toml). MLflow
+# installs this file from a temporary folder, so the project is found through
+# PROJECT_ROOT (set by main.py) instead of a relative path.
+-e ${PROJECT_ROOT}
+
+# Packages only this step needs (versions in uv.lock are applied as constraints):

@@ -1,98 +1,100 @@
 import os
 import tempfile
+from pathlib import Path
 
 import hydra
+import mlflow
+from omegaconf import DictConfig, OmegaConf
+
 from libs.log.log_config import get_logger
-from libs.mlflow_runtime import configure_tracking, managed_run
-from omegaconf import DictConfig
+from libs.mlflow_runtime import (
+    configure_tracking,
+    managed_run,
+    prepare_step_environment,
+)
+from libs.store import STORE_CONFIG_ENV, Store
 
 _steps = [
-    # NOTE: Add steps here
-    'get_data',
-    'basic_cleaning',
-    'data_check',
-    'preprocessing',
+    # NOTE: Add steps here, in execution order. Each step is an MLflow project in
+    # src/<step> (create one with `make step`) and receives the keys of the config
+    # section with the same name as parameters.
+    "get_data",
+    "basic_cleaning",
+    "data_check",
+    "preprocessing",
 ]
 
 # This automatically reads in the configuration
 logger = get_logger("MAIN")
 
 
-@hydra.main(config_name='config',  config_path=".", version_base=None)
+@hydra.main(config_name="config", config_path=".", version_base=None)
 def go(config: DictConfig):
 
     # Steps to execute
-    steps_par = config['main']['steps']
-    active_steps = steps_par.split(",") if steps_par != "all" else _steps
-    root_path = hydra.utils.get_original_cwd()
-    config_path = os.path.join(
-        root_path,
-        "config.yaml"
+    steps_par = config["main"]["steps"]
+    active_steps = (
+        _steps
+        if steps_par == "all"
+        else [step.strip() for step in steps_par.split(",")]
     )
-    model_path = os.path.join(
-        root_path,
-        'models'
-    )
-    data_path = os.path.join(
-        root_path,
-        "data"
-    )
-    raw_data = os.path.join(
-        data_path,
-        'raw'
-    )
-    processed_data = os.path.join(
-        data_path,
-        'processed'
-    )
+    unknown_steps = [step for step in active_steps if step not in _steps]
+    if unknown_steps:
+        raise ValueError(f"Unknown steps {unknown_steps}. Available: {_steps}")
 
-    is_local = bool(config.get("launcher", {}).get("local", False))
-    tracking_uri = configure_tracking(root_path=root_path, is_local=is_local)
+    root_path = Path(config["root"]).resolve()
+    is_local = bool(config["launcher"]["local"])
+    tracking_uri = configure_tracking(root_path=str(root_path), is_local=is_local)
+    env_manager = "local" if is_local else config["launcher"]["env_manager"]
+    store = Store.from_config(config["store"], base_dir=root_path)
 
-    # Move to a temporary directory
     experiment_name = (
-        f"{config['main']['project_name']}_"
-        f"{config['main']['experiment_name']}"
+        f"{config['main']['project_name']}_{config['main']['experiment_name']}"
     )
-    env_manager = "local" if is_local else "configured"
 
     logger.info(f"Running the following steps: {active_steps}")
     logger.info(f"Experiment name: {experiment_name}")
     logger.info(f"Environment manager: {env_manager}")
     logger.info(f"Root path: {root_path}")
-    logger.info(f"Config path: {config_path}")
-    logger.info(f"Model path: {model_path}")
-    logger.info(f"Data path: {data_path}")
-    logger.info(f"Raw data path: {raw_data}")
-    logger.info(f"Processed data path: {processed_data}")
     logger.info(f"MLflow tracking URI: {tracking_uri}")
+    logger.info(f"Store sync to S3: {store.sync_s3}")
+    for name, location in store.locations.items():
+        logger.info(f"Store location {name}: {location.path}")
 
-    with managed_run(experiment_name=experiment_name) as run:
+    prepare_step_environment(str(root_path), env_manager)
+
+    with (
+        managed_run(experiment_name=experiment_name) as run,
+        tempfile.TemporaryDirectory() as tmp_dir,
+    ):
         logger.info(f"MLflow run ID: {run.info.run_id}")
 
-        with tempfile.TemporaryDirectory():
+        # Hand the resolved store config (CLI overrides included) to the steps
+        os.environ[STORE_CONFIG_ENV] = store.dump(Path(tmp_dir) / "store.yaml")
 
-            if "get_data" in active_steps:
-                # Download file and load
-                logger.info("Getting data")
+        for step in active_steps:
+            step_path = root_path / "src" / step
+            if not (step_path / "MLproject").exists():
+                logger.warning(
+                    f"Skipping step {step!r}: no MLflow project in {step_path} "
+                    "(create it with `make step`)"
+                )
+                continue
 
-            if "basic_cleaning" in active_steps:
-                ##################
-                # Implement here #
-                ##################
-                logger.info("Basic cleaning")
-
-            if "data_check" in active_steps:
-                ##################
-                # Implement here #
-                ##################
-                logger.info("Data check")
-
-            if "preprocessing" in active_steps:
-                ##################
-                # Implement here #
-                ##################
-                logger.info("Preprocessing")
+            section = config.get(step)
+            parameters = (
+                OmegaConf.to_container(section, resolve=True)
+                if section is not None
+                else {}
+            )
+            logger.info(f"Running step {step!r} with parameters {parameters}")
+            mlflow.run(
+                str(step_path),
+                "main",
+                parameters=parameters,
+                env_manager=env_manager,
+                experiment_name=experiment_name,
+            )
 
 
 if __name__ == "__main__":

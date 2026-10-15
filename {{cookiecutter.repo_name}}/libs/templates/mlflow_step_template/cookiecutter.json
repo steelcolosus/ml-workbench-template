@@ -3,7 +3,7 @@
 	"script_name": "run.py",
 	"job_type": "my_step",
 	"short_description": "My step",
-	"long_description": "An example of a step using MLflow and Weights & Biases",
-	"parameters": "parameter1,parameter2",
-	"python_version": "3.10.6"
+	"long_description": "An example of a step using MLflow",
+	"parameters": "input_artifact,output_artifact",
+	"python_version": "3.12"
 }

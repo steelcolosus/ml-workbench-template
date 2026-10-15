@@ -1,0 +1,76 @@
+[project]
+name = "{{cookiecutter.repo_name}}"
+version = "0.1.0"
+description = "{{cookiecutter.description}}"
+readme = "README.md"
+authors = [{ name = "{{cookiecutter.author_name}}" }]
+requires-python = ">={{cookiecutter.python_version}}"
+# Runtime dependencies: everything the pipeline and the steps import. Steps that
+# MLflow runs in their own virtualenv install the project, so they get these too.
+dependencies = [
+    "boto3",
+    "dask[dataframe]",
+    "hydra-core",
+    "hydra-joblib-launcher",
+    "mlflow>=3",
+    "omegaconf",
+    "pandas",
+    "psycopg2-binary",
+    "pyarrow",
+    "python-dotenv",
+    "pyyaml",
+    "scikit-learn",
+    "statsmodels",
+]
+
+[dependency-groups]
+dev = [
+    "cookiecutter",
+    "moto[s3]",
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+notebook = [
+    "ipywidgets",
+    "jupyterlab",
+    "jupyterlab-git",
+]
+eda = [
+    "matplotlib",
+    "seaborn",
+    "ydata-profiling",
+]
+
+[tool.uv]
+# `uv sync` and `uv run` install every group; `uv sync --no-group eda` skips one
+default-groups = ["dev", "notebook", "eda"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Ship libs/ and src/shared/ as the `libs` and `src.shared` packages, so they can
+# be imported from anywhere (main.py, notebooks, tests and the MLflow steps)
+[tool.hatch.build.targets.wheel]
+only-include = ["libs", "src/shared"]
+exclude = ["libs/templates"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+extend-exclude = [".mlflow-envs", "libs/templates", "notebooks", "*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["libs", "src"]

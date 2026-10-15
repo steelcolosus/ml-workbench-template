@@ -162,6 +162,17 @@ cython_debug/
 
 
 outputs/*
+multirun/
+mlruns/
+mlartifacts/
+# Step environments created by MLflow (launcher.env_manager uv or virtualenv)
+.mlflow-envs/
 
+# Environment files with secrets (example.env is the committed template)
+.env.*
+
+# Saved models (written by the store, synced to S3 when enabled)
+models/*
+!models/.gitkeep
 
 *.db

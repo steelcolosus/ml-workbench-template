@@ -2,32 +2,40 @@
 """
 {{cookiecutter.long_description}}
 """
-import argparse
-from libs.log.log_config import get_logger
 
-logger = get_logger(f"{{cookiecutter.step_name}}")
+import argparse
+
+from libs.log.log_config import get_logger
+from libs.store import Store
+
+logger = get_logger("{{cookiecutter.step_name}}")
 
 
 def go(args):
+    store = Store.from_env()
+    logger.info(f"Store locations: {list(store.locations)}")
 
     ######################
     # YOUR CODE HERE     #
     ######################
+    # The store builds paths from the `store.locations` config and syncs with S3
+    # when store.sync_s3 is on (see README > Store). For example:
+    #
+    # df = store.load_data("raw", args.input_artifact)
+    # store.save_data("processed", args.output_artifact, df)
     pass
 
+
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="{{cookiecutter.short_description}}")
-
 {% for arg_name in cookiecutter.parameters.split(",") %}
     parser.add_argument(
-        "--{{arg_name}}", 
-        type=str,## INSERT TYPE HERE: str, float or int,
-        help="",## INSERT DESCRIPTION HERE,
-        required=True
+        "--{{arg_name.strip()}}",
+        type=str,  # INSERT TYPE HERE: str, float or int
+        help="",  # INSERT DESCRIPTION HERE
+        required=True,
     )
 {% endfor %}
-
     args = parser.parse_args()
 
     go(args)

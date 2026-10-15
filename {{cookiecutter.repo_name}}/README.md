@@ -1,98 +1,239 @@
-#{{cookiecutter.project_name}}
+# {{cookiecutter.project_name}}
 
 {{cookiecutter.description}}
 
-This is a Makefile-based project designed to set up a development environment for running MLflow server and Jupyter Notebook in parallel. It creates a virtual environment, installs required dependencies, sets up a Docker Compose environment, and manages storage for artifacts and PostgreSQL.
+This is a Makefile-based project designed to set up a development environment for running MLflow server and Jupyter Notebook in parallel. It uses [uv](https://docs.astral.sh/uv/) to create the virtual environment from `pyproject.toml` and `uv.lock`, sets up a Docker Compose environment, and manages storage for artifacts and PostgreSQL.
 
-##Requirements
+## Requirements
 
--   Python 3
+-   [uv](https://docs.astral.sh/uv/getting-started/installation/) (it installs Python {{cookiecutter.python_version}} from `.python-version` if needed)
 -   Docker
 -   Docker Compose
 
-##Getting Started
+## Getting Started
 
 1. Clone the repository.
-2. Make sure Docker and Docker Compose are installed.
-3. Run make to set up the environment and run the default targets.
+2. Install uv (`curl -LsSf https://astral.sh/uv/install.sh | sh`) and make sure Docker and Docker Compose are installed.
+3. Run `make venv` to create `.venv` with the project and every dependency group. The first run creates `uv.lock`: commit it.
+4. Run `make test` to check the setup.
+5. Run `make` to start PostgreSQL and the MLflow server. The first run creates `.env` from `example.env`.
 
-##Targets
+There is no need to activate `.venv` or set `PYTHONPATH`: the targets run through `uv run`, and `libs/` and `src/shared/` are installed as packages, so `from libs.store import Store` works from the project root, a notebook or a step. To work in a shell, run `source .venv/bin/activate` or prefix commands with `uv run`.
 
--   `venv`: Create a virtual environment and install requirements.
--   `docker-compose`: Run Docker Compose to set up the required services.
+## Targets
+
+Run `make help` for the full list.
+
+-   `venv`: Create `.venv` and install the project with the locked dependencies (`uv sync`).
+-   `outdated`: List the direct dependencies that have a newer version.
+-   `upgrade`: Upgrade every dependency in `uv.lock` to its latest allowed version and sync `.venv`.
+-   `docker-compose`: Start PostgreSQL with Docker Compose and wait until it is healthy.
 -   `mlflow-server`: Run the MLflow server with a PostgreSQL backend and artifact store.
--   `jupyter-notebook`: Run Jupyter Notebook in the virtual environment.
+-   `jupyter-notebook`: Run Jupyter Lab in the virtual environment.
 -   `setup`: Set up the environment and storage for MLflow and PostgreSQL.
--   `run`: Run mlflow-server and jupyter-notebook targets in parallel (default target).
--   `clean`: Clean up Docker resources.
--   `clean`-all: Clean up all resources, including Python and storage.
+-   `run`: Run the MLflow server.
+-   `run-all`: Run the MLflow server and Jupyter Lab in parallel.
+-   `pipeline`: Run the pipeline steps (`STEPS=a,b` for a subset, `ARGS="key=value"` for config overrides).
+-   `step`: Create a new MLflow step in `src/` from the step template.
+-   `test`: Run the tests.
+-   `lint`: Check the code with ruff (lint and format).
+-   `format`: Fix lint issues and format the code with ruff.
+-   `hooks`: Install the pre-commit hooks (ruff on every commit).
+-   `clean`: Stop the project containers.
+-   `clean-all`: Remove containers, stores and Python caches.
 -   `down`: Stop and remove containers, networks, images, and volumes.
--   `prune`: Prune unused Docker resources.
+-   `prune`: Prune **all** unused Docker resources on this machine (not only this project).
 
-##Usage
-Run the default target to set up the environment and run MLflow server and Jupyter Notebook:
+## Usage
+
+Run the default target to set up the environment and run the MLflow server:
 
 ```shell
 make
 ```
 
-Run individual targets as needed:
+Every target uses `ENV=dev` (`.env`) by default. Use `ENV=beta` or `ENV=prod` to load `.env.beta` or `.env.prod`:
 
 ```shell
-make <target-name>
+make pipeline ENV=prod
 ```
 
-For example, to set up the environment without running the services:
+Run the whole pipeline, a subset of steps, or override any config value:
 
 ```shell
-make setup
+make pipeline
+make pipeline STEPS=basic_cleaning,data_check
+make pipeline ARGS="store.sync_s3=true launcher.local=true"
 ```
 
-To run the services in parallel after setting up the environment:
+## Dependencies
+
+Dependencies live in `pyproject.toml` and their exact versions in `uv.lock`:
+
+| Where | What | Add with |
+|---|---|---|
+| `[project] dependencies` | Everything the pipeline and the steps import | `uv add scipy` |
+| `dev` group | pytest, moto, ruff, pre-commit, cookiecutter | `uv add --group dev mypy` |
+| `notebook` group | Jupyter Lab and widgets | `uv add --group notebook plotly` |
+| `eda` group | ydata-profiling, seaborn, matplotlib | `uv add --group eda sweetviz` |
+
+`uv add` updates `pyproject.toml`, `uv.lock` and `.venv` at once. `make venv` installs every group; `uv sync --no-group eda` skips one. Run `make outdated` to see what can be upgraded and `make upgrade` to do it.
+
+## Pipeline steps
+
+Each step is an MLflow project in `src/<step>`:
+
+1. Create it with `make step` (it gets `input_artifact` and `output_artifact` parameters by default; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts).
+2. Add its name to `_steps` in `main.py`, in execution order.
+3. Add a section with the same name to `config.yaml`. Every key in it is passed to the step as a parameter:
+
+```yaml
+basic_cleaning:
+    input_artifact: listings.csv
+    output_artifact: clean.parquet
+
+data_check:
+    input_artifact: ${basic_cleaning.output_artifact}   # chained to the previous step
+    output_artifact: data_check.html
+```
+
+### Step environments
+
+`launcher.env_manager` (used when `launcher.local` is false) decides where the steps run:
+
+-   `local` (default): in `.venv`, like `launcher.local=true`.
+-   `uv`: MLflow creates an environment per step with uv, from the step's `requirements.txt`.
+-   `virtualenv`: the same with pip, but it needs [pyenv](https://github.com/pyenv/pyenv) to install Python.
+
+A step's `requirements.txt` installs the project with `-e ${PROJECT_ROOT}` (`libs/`, `src/shared/` and the `[project]` dependencies); add packages only that step needs below it. `main.py` sets `PROJECT_ROOT`, keeps the step environments in `.mlflow-envs/<hash of uv.lock>` (they are rebuilt when `uv.lock` changes) and applies the versions in `uv.lock` as constraints, so the steps run with the same versions as `.venv`. `make clean-python` deletes them.
+
+A step can also run on its own:
 
 ```shell
-make run
+uv run mlflow run src/basic_cleaning --env-manager local -P input_artifact=listings.csv -P output_artifact=clean.parquet
 ```
 
-To clean up all resources:
+## Store
+
+`libs.store.Store` reads and saves files by **location** and **name**. Locations are folders configured once in `config.yaml`, so steps never build paths by hand. Files are always read and written locally. When `store.sync_s3` is true, a file that is missing locally is downloaded from S3 on load, and every save is uploaded afterwards.
+
+### Configuration
+
+```yaml
+store:
+    local_root: ${root}/data            # base folder for relative location paths
+    sync_s3: false                      # the only switch for S3
+    bucket: ${oc.env:AWS_BUCKET,null}   # default bucket
+    prefix: ml/{{cookiecutter.repo_name}}  # default prefix
+    locations:
+        raw:
+            path: raw                   # data/raw
+        processed:
+            path: processed             # data/processed
+        models:
+            path: ${root}/models        # absolute paths can live outside local_root
+        analytics:
+            path: analytics
+            bucket: analytics-bucket    # optional: own bucket
+            prefix: team-x/{{cookiecutter.repo_name}}  # optional: own prefix
+```
+
+Where an item is stored in S3:
+
+| Call | Local | S3 |
+|---|---|---|
+| `("raw", "listings.csv")` | `data/raw/listings.csv` | `s3://<bucket>/ml/{{cookiecutter.repo_name}}/raw/listings.csv` |
+| `("models", "price_model")` | `models/price_model/` | `s3://<bucket>/ml/{{cookiecutter.repo_name}}/models/price_model/` |
+| `("analytics", "eda/report.html")` | `data/analytics/eda/report.html` | `s3://analytics-bucket/team-x/{{cookiecutter.repo_name}}/eda/report.html` |
+
+A location uses its own `bucket` and `prefix` when set, otherwise `store.bucket` and `store.prefix/<location name>`.
+
+With `sync_s3: false` nothing contacts S3: no bucket, credentials or network are needed.
+
+### Methods
+
+```python
+from libs.store import Store
+
+store = Store.from_env()   # inside a step or notebook; main.py passes its resolved config
+
+# Data: pandas (default) or dask, format from the extension (.csv, .parquet, .json, .jsonl)
+df = store.load_data(
+    "raw", args.input_artifact,
+    columns=["id", "price", "last_review"],
+    dtypes={"price": "float64"},
+    parse_dates=["last_review"],
+    sep=",",                       # anything else goes to the reader
+)
+events = store.load_data("raw", "events/*.parquet", engine="dask")
+store.save_data("processed", args.output_artifact, df)          # engine detected from the object
+
+# Artifacts: anything written or read by another tool
+store.save_artifact("analytics", "eda/report.html",
+                    writer=lambda path: ProfileReport(df).to_file(path))
+store.save_artifact("models", "price_model",
+                    writer=lambda path: mlflow.pyfunc.save_model(path, python_model=model))
+model = store.load_artifact("models", "price_model", reader=mlflow.pyfunc.load_model)
+
+# Just the local path, no download or upload
+path = store.path("analytics", "plots/heatmap.png")
+```
+
+| Method | What it does |
+|---|---|
+| `load_data(location, name, engine, columns, dtypes, parse_dates, format, **read_options)` | Reads a DataFrame. Downloads it first if it is missing locally and sync is on. |
+| `save_data(location, name, df, format, sync=True, **write_options)` | Writes a DataFrame, then uploads it if sync is on. |
+| `load_artifact(location, name, reader=None)` | Makes sure the file or folder is local (downloading it if needed) and returns `reader(path)`, or the path. |
+| `save_artifact(location, name, writer, sync=True)` | Calls `writer(path)` to create a file or folder, moves it into place, then uploads it if sync is on. |
+| `path(location, name="")` | Returns the local path. Never downloads or uploads: use `save_artifact` when the result must reach S3. |
+| `uri(location, name="")` | Returns the S3 URI (for logs and debugging). |
+
+Details:
+
+-   `sync=False` on a save keeps that one save local even when `store.sync_s3` is true.
+-   Saves are atomic: the writer works on a temporary path that only replaces the existing file or folder once it is complete.
+-   Folders (dask datasets, MLflow models) are mirrored to S3: remote files that no longer exist locally are deleted.
+-   A local file always wins over S3; delete it to download it again.
+-   Locations and buckets are checked when the store is created: an unknown location or a missing bucket with `sync_s3: true` fails right away.
+
+### Local S3
+
+To try `sync_s3` without AWS, start the in-memory S3 server and point the store at it:
 
 ```shell
-make clean-all
+docker compose --profile s3-local up -d
 ```
 
-To only clean up Docker resources:
+Then uncomment `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env` and create the bucket once (see `example.env`).
 
-```shell
-make clean
-```
+## Environment Variables
 
-Directories
-
--   `${MLFLOW_ARTIFACT_STORE}`: Directory for storing MLflow artifacts.
--   `${POSTGRES_VOLUME}`: Directory for storing PostgreSQL data.
-
-##Environment Variables
 The project includes a .env file containing environment variables for MLflow server, PostgreSQL, and storage directories. Modify the values as needed for your environment.
 
-###Configuration
+### Configuration
+
 To configure the project, modify the values in the .env file according to your requirements. Here are the main environment variables used in the Makefile:
 
 -   `POSTGRES_USER`: PostgreSQL user.
 -   `POSTGRES_PASSWORD`: PostgreSQL password.
--   `POSTGRES_DATABASE`: PostgreSQL database name.
--   `POSTGRES_PORT`: PostgreSQL port.
+-   `POSTGRES_DB`: PostgreSQL database name.
+-   `POSTGRES_PORT`: PostgreSQL port on the host.
 -   `MLFLOW_BACKEND_STORE`: Hostname for the MLflow backend store (PostgreSQL).
 -   `MLFLOW_ARTIFACT_STORE`: Directory for storing MLflow artifacts.
 -   `MLFLOW_TRACKING_SERVER_HOST`: Host for the MLflow tracking server.
 -   `MLFLOW_TRACKING_SERVER_PORT`: Port for the MLflow tracking server.
 -   `POSTGRES_VOLUME`: Directory for storing PostgreSQL data.
+-   `AWS_PROFILE`, `AWS_BUCKET`, `AWS_REGION`: AWS settings used by the store.
+-   `AWS_ENDPOINT_URL`: Optional S3-compatible endpoint (e.g. the local S3 server).
 
-###Customization
+### Customization
+
 You can easily customize this project to suit your needs by adding or modifying targets in the Makefile. Here are some ideas for customization:
 
 -   Add targets for specific data processing or training tasks.
 -   Integrate additional tools, like TensorBoard or additional Jupyter Notebook extensions.
 -   Add targets for deployment or packaging.
 
-##Contributing
+## Contributing
+
 If you'd like to contribute to the project, feel free to submit a pull request or open an issue. We appreciate any help and feedback.

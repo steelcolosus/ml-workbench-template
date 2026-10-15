@@ -8,6 +8,21 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+      - ${POSTGRES_PORT}:5432
     volumes:
       - ${POSTGRES_VOLUME}:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # In-memory S3 for trying store.sync_s3 without AWS (data is lost on restart):
+  #   docker compose --profile s3-local up -d
+  # and set AWS_ENDPOINT_URL in .env (see example.env).
+  s3-local:
+    container_name: ml-s3-local
+    image: motoserver/moto:latest
+    profiles: ["s3-local"]
+    ports:
+      - ${S3_LOCAL_PORT:-9000}:5000
