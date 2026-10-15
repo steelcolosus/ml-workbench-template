@@ -26,6 +26,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "cookiecutter",
+    "import-linter",
     "moto[s3]",
     "pre-commit",
     "pytest",
@@ -50,18 +51,29 @@ default-groups = ["dev", "notebook", "eda"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# Ship libs/ and src/shared/ as the `libs` and `src.shared` packages, so they can
-# be imported from anywhere (main.py, notebooks, tests and the MLflow steps)
+# Ship the shared packages in src/ so they can be imported from anywhere (main.py,
+# notebooks, tests, the MLflow steps and serving). src/steps/ holds the steps,
+# which MLflow runs as scripts, so it is not a package.
 [tool.hatch.build.targets.wheel]
-only-include = ["libs", "src/shared"]
-exclude = ["libs/templates"]
+packages = ["src/core", "src/libs", "src/utils", "src/serving"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+# Dependency rules between the packages in src/ (checked by `make lint`):
+# each layer may import the layers below it, never the ones above.
+[tool.importlinter]
+root_packages = ["serving", "libs", "core", "utils"]
+
+[[tool.importlinter.contracts]]
+name = "serving -> libs -> core -> utils"
+type = "layers"
+layers = ["serving", "libs", "core", "utils"]
+
 [tool.ruff]
 line-length = 88
-extend-exclude = [".mlflow-envs", "libs/templates", "notebooks", "*.md"]
+src = ["src", "."]
+extend-exclude = [".mlflow-envs", "templates", "notebooks", "*.md"]
 
 [tool.ruff.lint]
 select = [
@@ -73,4 +85,4 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["libs", "src"]
+known-first-party = ["core", "libs", "utils", "serving"]

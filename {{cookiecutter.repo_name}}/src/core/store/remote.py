@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from libs.store.files import remove_path, replace_path, tmp_sibling
+from utils.files import remove_path, replace_path, tmp_sibling
 
 
 class S3Client:

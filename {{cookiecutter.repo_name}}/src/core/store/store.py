@@ -22,10 +22,10 @@ from typing import Any
 
 import yaml
 
-from libs.log.log_config import get_logger
-from libs.store import engines
-from libs.store.files import remove_path, replace_path, tmp_sibling
-from libs.store.s3 import S3Client
+from core.store import engines
+from core.store.remote import S3Client
+from utils.files import remove_path, replace_path, tmp_sibling
+from utils.log import get_logger
 
 logger = get_logger("STORE")
 

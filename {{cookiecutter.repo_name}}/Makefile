@@ -36,7 +36,7 @@ INSTALL_DIRECTORY:=$(CURRENT_DIRECTORY)/.venv
 variables := PROJECT_ROOT USER_NAME PYTHON_VERSION CURRENT_DIRECTORY INSTALL_DIRECTORY
 
 #STEP_REPO:=git@github.com:steelcolosus/mlflow-step-template.git
-STEP_PATH:=$(CURRENT_DIRECTORY)/libs/templates/mlflow_step_template
+STEP_PATH:=$(CURRENT_DIRECTORY)/templates/step
 
 # Colors
 RESET := $(shell tput sgr0 2>/dev/null)
@@ -78,7 +78,7 @@ run: ##@Development Run mlflow-server
 run-all: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
 	$(MAKE) -j 2 mlflow-server jupyter-notebook
 
-# Create .venv with the project (libs/, src/shared/) and every dependency group
+# Create .venv with the project (the packages in src/) and every dependency group
 venv: ##@Development Create .venv and install the locked dependencies (uv sync)
 	$(UV) sync
 
@@ -115,9 +115,10 @@ pipeline: ##@Pipeline Run the pipeline (STEPS=a,b for a subset, ARGS for config 
 test: ##@Development Run the tests
 	$(PYTEST) tests
 
-lint: ##@Development Lint the code with ruff
+lint: ##@Development Lint the code with ruff and check the package layers
 	$(RUFF) check .
 	$(RUFF) format --check .
+	$(UV_RUN) lint-imports
 
 format: ##@Development Fix lint issues and format the code with ruff
 	$(RUFF) check --fix .
@@ -168,8 +169,8 @@ ${POSTGRES_VOLUME}:
 
 
 # make step ARGS="--no-input step_name=basic_cleaning" skips the prompts
-step: ##@Development Create a new MLflow step in src/ from the step template
-	$(CC) ${STEP_PATH} -o ./src python_version=$(PYTHON_VERSION) $(ARGS)
+step: ##@Development Create a new MLflow step in src/steps/ from the step template
+	$(CC) ${STEP_PATH} -o ./src/steps python_version=$(PYTHON_VERSION) $(ARGS)
 
 login: ##@Development Login to AWS SSO
 	aws sso login --profile ${AWS_PROFILE}

@@ -14,6 +14,6 @@ also ask for the parameters of the script. This should be a comma-separated list
 After you are done, you will find a new directory with the provided step name containing a stub of a new MLflow step.
 
 You will need to edit both the script and the MLproject files to fill in the type and the help for the parameters.
-The step's `requirements.txt` installs the project itself (`libs/`, `src/shared/` and the
+The step's `requirements.txt` installs the project itself (the packages in `src/` and the
 dependencies in `pyproject.toml`). Packages that only this step needs go below it; packages
 the whole project uses go in `pyproject.toml` (`uv add <package>`).

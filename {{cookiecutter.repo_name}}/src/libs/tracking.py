@@ -96,3 +96,18 @@ def managed_run(experiment_name: str, run_name: str | None = None):
     mlflow.set_experiment(experiment_name)
     with mlflow.start_run(run_name=run_name) as run:
         yield run
+
+
+def register_model(run_id, model_name):
+    """
+    Register model in mlflow
+
+    Args:
+        run_id: str
+        model_name: str
+
+    Returns:
+        None
+    """
+
+    mlflow.register_model(f"runs:/{run_id}/{model_name}", model_name)

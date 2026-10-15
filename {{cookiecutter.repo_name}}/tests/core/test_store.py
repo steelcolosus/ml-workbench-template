@@ -7,9 +7,9 @@ import pytest
 from moto import mock_aws
 from omegaconf import OmegaConf
 
-from libs.store import STORE_CONFIG_ENV, Store
+from core.store import STORE_CONFIG_ENV, Store
 
-PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
+PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
 BUCKET = "ml-bucket"
 ANALYTICS_BUCKET = "analytics-bucket"
 

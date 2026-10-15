@@ -18,7 +18,25 @@ This is a Makefile-based project designed to set up a development environment fo
 4. Run `make test` to check the setup.
 5. Run `make` to start PostgreSQL and the MLflow server. The first run creates `.env` from `example.env`.
 
-There is no need to activate `.venv` or set `PYTHONPATH`: the targets run through `uv run`, and `libs/` and `src/shared/` are installed as packages, so `from libs.store import Store` works from the project root, a notebook or a step. To work in a shell, run `source .venv/bin/activate` or prefix commands with `uv run`.
+There is no need to activate `.venv` or set `PYTHONPATH`: the targets run through `uv run`, and the packages in `src/` are installed, so `from core.store import Store` works from the project root, a notebook or a step. To work in a shell, run `source .venv/bin/activate` or prefix commands with `uv run`.
+
+## Project layout
+
+All code lives in `src/`. The entry points (`main.py`, `run.py`, `MLProject`, `config.yaml`) stay at the root.
+
+```
+src/
+  core/        Abstractions the rest of the code builds on (the store, ...)
+  libs/        Building blocks a step chooses to use: MLflow tracking, data transforms, EDA
+  utils/       Small generic helpers: config files, logging, file operations
+  steps/       Pipeline steps, one MLflow project per folder (`make step`)
+  serving/     Serving code (APIs, batch scoring)
+templates/
+  step/        Cookiecutter template used by `make step`
+tests/         Mirrors src/: tests/core, tests/libs, ...
+```
+
+Each package may only import the ones below it: `serving` → `libs` → `core` → `utils`. Steps can import all of them, and nothing imports a step. `make lint` checks these rules with [import-linter](https://import-linter.readthedocs.io/).
 
 ## Targets
 
@@ -34,9 +52,9 @@ Run `make help` for the full list.
 -   `run`: Run the MLflow server.
 -   `run-all`: Run the MLflow server and Jupyter Lab in parallel.
 -   `pipeline`: Run the pipeline steps (`STEPS=a,b` for a subset, `ARGS="key=value"` for config overrides).
--   `step`: Create a new MLflow step in `src/` from the step template.
+-   `step`: Create a new MLflow step in `src/steps/` from the step template.
 -   `test`: Run the tests.
--   `lint`: Check the code with ruff (lint and format).
+-   `lint`: Check the code with ruff (lint and format) and the package layers with import-linter.
 -   `format`: Fix lint issues and format the code with ruff.
 -   `hooks`: Install the pre-commit hooks (ruff on every commit).
 -   `clean`: Stop the project containers.
@@ -81,7 +99,7 @@ Dependencies live in `pyproject.toml` and their exact versions in `uv.lock`:
 
 ## Pipeline steps
 
-Each step is an MLflow project in `src/<step>`:
+Each step is an MLflow project in `src/steps/<step>`:
 
 1. Create it with `make step` (it gets `input_artifact` and `output_artifact` parameters by default; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts).
 2. Add its name to `_steps` in `main.py`, in execution order.
@@ -105,17 +123,17 @@ data_check:
 -   `uv`: MLflow creates an environment per step with uv, from the step's `requirements.txt`.
 -   `virtualenv`: the same with pip, but it needs [pyenv](https://github.com/pyenv/pyenv) to install Python.
 
-A step's `requirements.txt` installs the project with `-e ${PROJECT_ROOT}` (`libs/`, `src/shared/` and the `[project]` dependencies); add packages only that step needs below it. `main.py` sets `PROJECT_ROOT`, keeps the step environments in `.mlflow-envs/<hash of uv.lock>` (they are rebuilt when `uv.lock` changes) and applies the versions in `uv.lock` as constraints, so the steps run with the same versions as `.venv`. `make clean-python` deletes them.
+A step's `requirements.txt` installs the project with `-e ${PROJECT_ROOT}` (the packages in `src/` and the `[project]` dependencies); add packages only that step needs below it. `main.py` sets `PROJECT_ROOT`, keeps the step environments in `.mlflow-envs/<hash of uv.lock>` (they are rebuilt when `uv.lock` changes) and applies the versions in `uv.lock` as constraints, so the steps run with the same versions as `.venv`. `make clean-python` deletes them.
 
 A step can also run on its own:
 
 ```shell
-uv run mlflow run src/basic_cleaning --env-manager local -P input_artifact=listings.csv -P output_artifact=clean.parquet
+uv run mlflow run src/steps/basic_cleaning --env-manager local -P input_artifact=listings.csv -P output_artifact=clean.parquet
 ```
 
 ## Store
 
-`libs.store.Store` reads and saves files by **location** and **name**. Locations are folders configured once in `config.yaml`, so steps never build paths by hand. Files are always read and written locally. When `store.sync_s3` is true, a file that is missing locally is downloaded from S3 on load, and every save is uploaded afterwards.
+`core.store.Store` reads and saves files by **location** and **name**. Locations are folders configured once in `config.yaml`, so steps never build paths by hand. Files are always read and written locally. When `store.sync_s3` is true, a file that is missing locally is downloaded from S3 on load, and every save is uploaded afterwards.
 
 ### Configuration
 
@@ -153,7 +171,7 @@ With `sync_s3: false` nothing contacts S3: no bucket, credentials or network are
 ### Methods
 
 ```python
-from libs.store import Store
+from core.store import Store
 
 store = Store.from_env()   # inside a step or notebook; main.py passes its resolved config
 

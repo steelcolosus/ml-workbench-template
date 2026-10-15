@@ -5,8 +5,8 @@
 
 import argparse
 
-from libs.log.log_config import get_logger
-from libs.store import Store
+from utils.log import get_logger
+from core.store import Store
 
 logger = get_logger("{{cookiecutter.step_name}}")
 

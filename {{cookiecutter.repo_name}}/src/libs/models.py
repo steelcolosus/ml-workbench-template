@@ -2,25 +2,10 @@ import mlflow.pyfunc
 import pandas as pd
 from mlflow.models import infer_signature
 
-from libs.log.log_config import get_logger
-from libs.store import Store
+from core.store import Store
+from utils.log import get_logger
 
 logger = get_logger("CUSTOM_MODEL_UTILS")
-
-
-def register_model(run_id, model_name):
-    """
-    Register model in mlflow
-
-    Args:
-        run_id: str
-        model_name: str
-
-    Returns:
-        None
-    """
-
-    mlflow.register_model(f"runs:/{run_id}/{model_name}", model_name)
 
 
 def save_custom_model(

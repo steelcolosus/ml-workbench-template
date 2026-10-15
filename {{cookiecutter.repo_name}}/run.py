@@ -5,12 +5,12 @@ import mlflow
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
-from libs.log.log_config import get_logger
-from libs.mlflow_runtime import (
+from libs.tracking import (
     configure_tracking,
     managed_run,
     prepare_step_environment,
 )
+from utils.log import get_logger
 
 logger = get_logger("RUN")
 

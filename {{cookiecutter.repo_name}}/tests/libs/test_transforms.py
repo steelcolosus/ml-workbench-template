@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.shared.data_utils import apply_aggregations
+from libs.data.transforms import apply_aggregations
 
 
 def test_custom_aggregations_keep_their_own_values():

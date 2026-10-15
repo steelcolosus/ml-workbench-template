@@ -1,5 +1,5 @@
 # Used when the pipeline runs with launcher.env_manager=uv or virtualenv.
-# The project (libs/, src/shared/ and the dependencies in pyproject.toml). MLflow
+# The project (the packages in src/ and the dependencies in pyproject.toml). MLflow
 # installs this file from a temporary folder, so the project is found through
 # PROJECT_ROOT (set by main.py) instead of a relative path.
 -e ${PROJECT_ROOT}

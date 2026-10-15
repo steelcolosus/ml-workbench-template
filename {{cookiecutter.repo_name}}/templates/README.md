@@ -10,10 +10,10 @@ Cookiecutter is a command-line utility that creates projects from project templa
 
 1. **Create your custom Cookiecutter template**. Follow the [official documentation](https://cookiecutter.readthedocs.io/en/stable/index.html) to learn how to create a template. At minimum, your template should contain a `cookiecutter.json` file and a template directory.
 
-2. **Save your template in the `templates` directory**. Each template should be in a separate directory within `templates`.
+2. **Save your template in the `templates` directory (next to `step/`, the template `make step` uses)**. Each template should be in a separate directory within `templates`.
 
 3. **Run Cookiecutter with your custom template**. Specify the path to your template in the `templates` directory. For example, if your template is in a directory named `my_template` within `templates`, you would run:
 
 ```bash
-> cookiecutter lib/templates/my_template -o [destination directory]
+> cookiecutter templates/my_template -o [destination directory]
 ```

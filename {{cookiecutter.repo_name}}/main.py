@@ -6,17 +6,17 @@ import hydra
 import mlflow
 from omegaconf import DictConfig, OmegaConf
 
-from libs.log.log_config import get_logger
-from libs.mlflow_runtime import (
+from core.store import STORE_CONFIG_ENV, Store
+from libs.tracking import (
     configure_tracking,
     managed_run,
     prepare_step_environment,
 )
-from libs.store import STORE_CONFIG_ENV, Store
+from utils.log import get_logger
 
 _steps = [
     # NOTE: Add steps here, in execution order. Each step is an MLflow project in
-    # src/<step> (create one with `make step`) and receives the keys of the config
+    # src/steps/<step> (create one with `make step`) and receives the keys of the config
     # section with the same name as parameters.
     "get_data",
     "basic_cleaning",
@@ -73,7 +73,7 @@ def go(config: DictConfig):
         os.environ[STORE_CONFIG_ENV] = store.dump(Path(tmp_dir) / "store.yaml")
 
         for step in active_steps:
-            step_path = root_path / "src" / step
+            step_path = root_path / "src" / "steps" / step
             if not (step_path / "MLproject").exists():
                 logger.warning(
                     f"Skipping step {step!r}: no MLflow project in {step_path} "
