@@ -1,20 +1,54 @@
 # Cookiecutter template for ML Workbench
 
-Using this template you can quickly generate your basic ML workbench
+Generates an ML project with:
 
-# Usage
+-   an MLflow tracking server on PostgreSQL (Docker Compose), or local tracking in SQLite;
+-   a Hydra-configured pipeline whose steps are MLflow projects, each a subclass of `core.step.Step`;
+-   a local-first data store with optional S3 sync (`core.store.Store`);
+-   [uv](https://docs.astral.sh/uv/) for dependencies, ruff, pre-commit, import-linter and pytest.
 
-Run the command:
+## Usage
+
+```shell
+uvx cookiecutter [path or URL of this repo] -o [destination directory]
+```
+
+| Prompt | Used for |
+|---|---|
+| `project_name` | The README title. |
+| `repo_name` | Project folder, package and MLflow project name, experiment prefix (`<repo_name>_<experiment_name>`) and default S3 prefix (`ml/<repo_name>`). Derived from `project_name`. |
+| `author_name` | `pyproject.toml`. |
+| `experiment_name` | The MLflow experiment, with `repo_name` as prefix. |
+| `description` | The README and `pyproject.toml`. |
+| `open_source_license` | Not used yet. |
+| `s3_bucket`, `aws_profile`, `aws_region` | `example.env` (`AWS_BUCKET`, `AWS_PROFILE`, `AWS_REGION`), read by the store when S3 sync is on. |
+| `python_version` | `.python-version`, `requires-python` in `pyproject.toml` and the MLflow `python_env.yaml`. |
+
+Then, inside the generated project:
+
+```shell
+make venv       # create .venv with uv
+make test       # check the setup
+make step       # create a pipeline step in src/steps/ (asks for its name and parameters)
+make pipeline   # run the steps listed in main.py
+make help       # every target
+```
+
+## Generated project
 
 ```
-> uvx cookiecutter [path to this repo] -o [destination directory]
+src/
+  core/        Abstractions the rest builds on: Store, Step, CustomModel
+  libs/        Building blocks a step chooses to use: MLflow tracking, StepRunner, data transforms, EDA
+  utils/       Generic helpers: config files, logging, file operations
+  steps/       Pipeline steps, one MLflow project per folder
+  serving/     Serving code (APIs, batch scoring)
+templates/
+  step/        Cookiecutter template used by `make step`
+tests/
+main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compose.yml
 ```
 
-The generated project uses [uv](https://docs.astral.sh/uv/): run `make venv` inside it to create the environment.
+The generated project's README covers the pipeline, the store and the targets. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.
 
-and follow the prompt. The tool will ask for the step name, the script name, the description and so on. It will
-also ask for the parameters of the script. This should be a comma-separated list of parameter names _without spaces_.
-After you are done, you will find a new directory with the provided step name containing a stub of a new MLflow step.
-
-You will need to edit both the script and the MLproject files to fill in the type and the help for the parameters.
-Of course, if your script needs packages, these should be added to the conda.yml file.
+Projects generated before a template change keep their own copy of `templates/step`; copy the folder over to update it.
