@@ -214,6 +214,17 @@ Details:
 -   A local file always wins over S3; delete it to download it again.
 -   Locations and buckets are checked when the store is created: an unknown location or a missing bucket with `sync_s3: true` fails right away.
 
+### Extending the store
+
+The store works through two interfaces in `src/core/store/`, with S3 and pandas/dask as the built-in implementations:
+
+| Interface | Built in | To add one |
+|---|---|---|
+| `RemoteStorage` (`remote.py`) | `S3Storage` (also S3-compatible endpoints) | Implement `exists`, `list_keys`, `get_file`, `put_file` and `delete_keys`; folder downloads, mirroring and atomic writes come from the base class. Pass it as `Store(..., remote=GCSStorage())`. |
+| `DataEngine` (`engines.py`) | `PandasEngine`, `DaskEngine` | Implement `owns`, `read` and `write`. Pass it as `Store(..., engines={"polars": PolarsEngine()})`, then `load_data(..., engine="polars")`. |
+
+`Store.from_config` and `Store.from_env` accept the same `remote=` and `engines=` arguments.
+
 ### Local S3
 
 To try `sync_s3` without AWS, start the in-memory S3 server and point the store at it:
@@ -223,6 +234,26 @@ docker compose --profile s3-local up -d
 ```
 
 Then uncomment `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in `.env` and create the bucket once (see `example.env`).
+
+## Custom models
+
+Custom MLflow models subclass `core.model.CustomModel` (an `mlflow.pyfunc.PythonModel`) and implement `predict`:
+
+```python
+from core.model import CustomModel
+
+
+class PriceModel(CustomModel):
+    def predict(self, context, model_input, params=None):
+        ...
+
+
+model = PriceModel()
+model.save(store, "price_model", sample=X.head())    # logs it to the run and saves it to the `models` location
+loaded = CustomModel.load(store, "price_model")       # downloads it first when missing and sync is on
+```
+
+`save` infers the signature by predicting on `sample`. `log_model=False` skips logging to MLflow, `sync=False` keeps the saved copy local and `location=` picks another store location. To register a logged model, use `libs.tracking.register_model`.
 
 ## Environment Variables
 

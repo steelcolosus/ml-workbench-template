@@ -156,7 +156,7 @@ def test_missing_file_with_sync_off_does_not_touch_s3(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="sync_s3 is off"):
         store.load_data("raw", "missing.csv")
-    assert store._s3 is None
+    assert store._remote is None
 
 
 # ----------------------------------------------------------- artifacts

@@ -10,6 +10,10 @@ S3 path of an item:
     s3://<bucket>/<prefix>/<name>
 where <bucket> is the location's bucket or store.bucket, and <prefix> is the
 location's prefix or store.prefix/<location name>.
+
+Extension points (see remote.py and engines.py):
+    Store(..., remote=MyStorage())             another remote backend
+    Store(..., engines={"polars": MyEngine()}) another DataFrame engine
 """
 
 import glob
@@ -22,8 +26,8 @@ from typing import Any
 
 import yaml
 
-from core.store import engines
-from core.store.remote import S3Client
+from core.store.engines import DataEngine, default_engines, infer_format
+from core.store.remote import RemoteStorage, S3Storage
 from utils.files import remove_path, replace_path, tmp_sibling
 from utils.log import get_logger
 
@@ -74,6 +78,8 @@ class Store:
         region: str = None,
         endpoint_url: str = None,
         base_dir=None,
+        remote: RemoteStorage = None,
+        engines: dict[str, DataEngine] = None,
     ):
         base = Path(base_dir or os.getcwd()).resolve()
         self.local_root = _absolute(local_root, base)
@@ -85,7 +91,9 @@ class Store:
             "region": region,
             "endpoint_url": endpoint_url,
         }
-        self._s3 = None
+        # Built on first use (S3Storage by default), so sync off needs no AWS setup
+        self._remote = remote
+        self.engines = {**default_engines(), **(engines or {})}
 
         if not locations:
             raise ValueError("store.locations is empty: configure at least one")
@@ -122,35 +130,37 @@ class Store:
     # ------------------------------------------------------------------ setup
 
     @classmethod
-    def from_config(cls, config, base_dir=None) -> "Store":
+    def from_config(cls, config, base_dir=None, **kwargs) -> "Store":
         """
         Build a store from the `store` config section (dict or OmegaConf node).
-        Relative paths are resolved against `base_dir` (default: cwd).
+        Relative paths are resolved against `base_dir` (default: cwd). Other
+        keyword arguments (remote, engines) go to the constructor.
         """
         from omegaconf import OmegaConf
 
         if OmegaConf.is_config(config):
             config = OmegaConf.to_container(config, resolve=True)
-        return cls(**config, base_dir=base_dir)
+        return cls(**config, base_dir=base_dir, **kwargs)
 
     @classmethod
-    def from_env(cls) -> "Store":
+    def from_env(cls, **kwargs) -> "Store":
         """
         Build the store inside a step: from $STORE_CONFIG when the step is launched
         by main.py, otherwise from the project's config.yaml (searched upwards from
         $PROJECT_ROOT or the current directory), so steps also run on their own.
+        Keyword arguments (remote, engines) go to the constructor.
         """
         from omegaconf import OmegaConf
 
         config_file = os.environ.get(STORE_CONFIG_ENV)
         if config_file:
             return cls.from_config(
-                OmegaConf.load(config_file), base_dir=Path(config_file).parent
+                OmegaConf.load(config_file), base_dir=Path(config_file).parent, **kwargs
             )
 
         project_config = _find_project_config()
         config = OmegaConf.load(project_config)
-        return cls.from_config(config.store, base_dir=project_config.parent)
+        return cls.from_config(config.store, base_dir=project_config.parent, **kwargs)
 
     def to_dict(self) -> dict:
         """Resolved config with absolute paths, accepted by `from_config`."""
@@ -187,11 +197,11 @@ class Store:
         return loc.path / name if name else loc.path
 
     def uri(self, location: str, name: str = "") -> str | None:
-        """S3 URI of `name` inside `location`, or None if it has no bucket."""
+        """Remote URI of `name` inside `location`, or None if it has no bucket."""
         loc = self._location(location)
         if not loc.bucket:
             return None
-        return f"s3://{loc.bucket}/{loc.key(_clean_name(name))}"
+        return self.remote.uri(loc.bucket, loc.key(_clean_name(name)))
 
     # -------------------------------------------------------------------- data
 
@@ -207,16 +217,17 @@ class Store:
         **read_options,
     ):
         """
-        Read a DataFrame with pandas or dask. `columns`, `dtypes` and `parse_dates`
-        work the same for every format; other keyword arguments go to the reader
-        (e.g. sep=";" for csv, blocksize="128MB" for dask). With dask, `name` may
-        be a glob such as "events/*.parquet" or a folder.
+        Read a DataFrame with one of `self.engines` (pandas, dask, ...).
+        `columns`, `dtypes` and `parse_dates` work the same for every format; other
+        keyword arguments go to the reader (e.g. sep=";" for csv, blocksize="128MB"
+        for dask). With dask, `name` may be a glob such as "events/*.parquet" or a
+        folder.
         """
-        fmt = engines.infer_format(name, format)
+        data_engine = self._engine(engine)
+        fmt = infer_format(name, format)
         path = self._ensure_local(location, name)
-        return engines.read(
+        return data_engine.read(
             str(path),
-            engine,
             fmt,
             columns=columns,
             dtypes=dtypes,
@@ -234,15 +245,20 @@ class Store:
         **write_options,
     ) -> Path:
         """
-        Write a pandas or dask DataFrame (engine detected from the object).
+        Write a DataFrame with the engine that owns its type (pandas, dask, ...).
         Keyword arguments go to the writer. sync=False keeps this save local even
         when store.sync_s3 is on.
         """
-        fmt = engines.infer_format(name, format)
+        data_engine = next((e for e in self.engines.values() if e.owns(df)), None)
+        if data_engine is None:
+            raise TypeError(
+                f"No engine for {type(df).__name__}. Engines: {sorted(self.engines)}"
+            )
+        fmt = infer_format(name, format)
         return self._write(
             location,
             name,
-            lambda path: engines.write(df, str(path), fmt, **write_options),
+            lambda path: data_engine.write(df, str(path), fmt, **write_options),
             sync,
         )
 
@@ -271,10 +287,17 @@ class Store:
     # ---------------------------------------------------------------- internal
 
     @property
-    def s3(self) -> S3Client:
-        if self._s3 is None:
-            self._s3 = S3Client(**self._s3_settings)
-        return self._s3
+    def remote(self) -> RemoteStorage:
+        if self._remote is None:
+            self._remote = S3Storage(**self._s3_settings)
+        return self._remote
+
+    def _engine(self, engine: str) -> DataEngine:
+        if engine not in self.engines:
+            raise ValueError(
+                f"Unknown engine {engine!r}. Engines: {sorted(self.engines)}"
+            )
+        return self.engines[engine]
 
     def _location(self, location: str) -> Location:
         if location not in self.locations:
@@ -300,12 +323,12 @@ class Store:
                 f"{local} does not exist (store.sync_s3 is off, S3 was not checked)"
             )
 
-        uri = f"s3://{loc.bucket}/{loc.key(name)}"
+        uri = self.remote.uri(loc.bucket, loc.key(name))
         logger.info(f"{local} not found locally, downloading {uri}")
         if _is_glob(name):
             found = self._download_glob(loc, name)
         else:
-            found = self.s3.download(loc.bucket, loc.key(name), local)
+            found = self.remote.download(loc.bucket, loc.key(name), local)
         if not found:
             raise FileNotFoundError(
                 f"{name!r} not found in location {location!r}: "
@@ -323,13 +346,13 @@ class Store:
 
         root = f"{loc.prefix}/" if loc.prefix else ""
         found = False
-        for key in self.s3.list_keys(loc.bucket, root + "/".join(static)):
+        for key in self.remote.list_keys(loc.bucket, root + "/".join(static)):
             relative = key[len(root) :]
             segments = relative.split("/")
             if len(segments) == len(parts) and all(
                 fnmatchcase(s, p) for s, p in zip(segments, parts, strict=True)
             ):
-                self.s3.download_file(loc.bucket, key, loc.path / relative)
+                self.remote.download_file(loc.bucket, key, loc.path / relative)
                 found = True
         return found
 
@@ -358,8 +381,9 @@ class Store:
             remove_path(tmp)
 
         if self.sync_s3 and sync:
-            logger.info(f"Uploading {final} to s3://{loc.bucket}/{loc.key(name)}")
-            self.s3.upload(final, loc.bucket, loc.key(name))
+            uri = self.remote.uri(loc.bucket, loc.key(name))
+            logger.info(f"Uploading {final} to {uri}")
+            self.remote.upload(final, loc.bucket, loc.key(name))
         return final
 
 
