@@ -42,7 +42,7 @@ Each package may only import the ones below it: `serving` → `libs` → `core` 
 
 ## Targets
 
-Run `make help` for the full list.
+The `Makefile` holds the main commands; the rest live in `makefiles/`, one file per area (`dev.mk`, `mlflow.mk`, `infra.mk`, `docker.mk`, `clean.mk`, plus `common.mk` with the environment and shared variables). Every target runs the same way, `make <target>`, and `make help` lists them all, grouped.
 
 -   `venv`: Create `.venv` and install the project with the locked dependencies (`uv sync`).
 -   `outdated`: List the direct dependencies that have a newer version.
@@ -401,7 +401,7 @@ To configure the project, modify the values in the .env file according to your r
 
 ### Customization
 
-You can easily customize this project to suit your needs by adding or modifying targets in the Makefile. Here are some ideas for customization:
+You can easily customize this project to suit your needs by adding targets: everyday commands in the `Makefile`, the rest in the matching file in `makefiles/` (or a new `makefiles/<area>.mk`, added to the `include` line at the end of the `Makefile`). Here are some ideas for customization:
 
 -   Add targets for specific data processing or training tasks.
 -   Integrate additional tools, like TensorBoard or additional Jupyter Notebook extensions.

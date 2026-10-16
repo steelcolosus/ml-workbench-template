@@ -50,6 +50,7 @@ templates/
   step/        Cookiecutter template used by `make step`
 tests/
 docs/ARCHITECTURE.md
+makefiles/     Targets by area; the Makefile keeps the main commands
 main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  Dockerfile  docker-compose.yml
 ```
 

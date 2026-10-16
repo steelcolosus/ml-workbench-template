@@ -53,7 +53,8 @@ MLProject      The root MLflow project used by run.py
 config.yaml    All configuration
 pyproject.toml Dependencies and tool settings; uv.lock has the exact versions
 Dockerfile     pipeline, serving and test images
-Makefile       Every command (`make help`)
+Makefile       The main commands; includes makefiles/
+makefiles/     The other targets by area (dev, mlflow, infra, docker, clean) and common.mk
 ```
 
 ### Layers
@@ -105,7 +106,7 @@ sequenceDiagram
     end
 ```
 
-1.  **`make pipeline`** runs `python main.py "main.steps='all'" <ARGS>` through `uv run`. The Makefile exports `.env` and `PROJECT_ROOT`.
+1.  **`make pipeline`** runs `python main.py "main.steps='all'" <ARGS>` through `uv run`. `makefiles/common.mk` exports `.env` and `PROJECT_ROOT`.
 2.  **`main.py`** gets the config from Hydra (`config.yaml` plus command-line overrides such as `store.sync_s3=true`) and:
     -   makes `root` absolute (`utils.config.with_absolute_root`);
     -   sets the tracking URI (`libs.tracking.configure_tracking`): local SQLite with `launcher.local=true`, otherwise `MLFLOW_TRACKING_URI`;
@@ -144,7 +145,7 @@ sequenceDiagram
 
 1.  `config.yaml`;
 2.  overrides on the command line: `make pipeline ARGS="store.sync_s3=true launcher.local=true"` (Hydra syntax; `+key=value` adds a key that doesn't exist);
-3.  environment variables read through `${oc.env:...}`: `.env` (or `.env.beta` / `.env.prod` with `ENV=beta|prod`), exported by the Makefile. `example.env` documents every variable.
+3.  environment variables read through `${oc.env:...}`: `.env` (or `.env.beta` / `.env.prod` with `ENV=beta|prod`), exported by `makefiles/common.mk`. `example.env` documents every variable.
 
 Steps never read `config.yaml` directly when launched by `main.py`: they get their resolved section (`config_path`) and the resolved store config (`STORE_CONFIG`), so overrides reach them.
 
@@ -319,6 +320,8 @@ store.save_artifact("analytics", "eda/report.html",
 **Add a dependency**: `uv add <package>` for base, `uv add --optional pipeline|serving <package>` for one image, `uv add --group dev|test|notebook|eda <package>` for development only.
 
 **Add a storage backend or DataFrame engine**: subclass `RemoteStorage` or `DataEngine` (see [core.store](#corestore)) and pass it to the store; `Store.from_env(remote=..., engines=...)` in steps.
+
+**Add a make target**: everyday commands go in the `Makefile`; anything else in the matching `makefiles/<area>.mk`, or a new file added to the `include` line at the end of the `Makefile`. Variables from `makefiles/common.mk` (`$(UV_RUN)`, `$(PYTHON)`, the `.env` values) are available everywhere. Add `##@<Group> description` after the target to list it in `make help`, and the target to that file's `.PHONY`.
 
 **Run everything in Docker**: `make run` (MLflow server on your machine), then `make docker-pipeline`, `make docker-serve SERVING_MODEL_NAME=...` or `make docker-test`.
 
