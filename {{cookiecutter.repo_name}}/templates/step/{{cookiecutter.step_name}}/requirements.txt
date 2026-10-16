@@ -1,7 +1,7 @@
 # Used when the pipeline runs with launcher.env_manager=uv or virtualenv.
-# The project (the packages in src/ and the dependencies in pyproject.toml). MLflow
+# The project with the pipeline extra (pyproject.toml). MLflow
 # installs this file from a temporary folder, so the project is found through
 # PROJECT_ROOT (set by main.py) instead of a relative path.
--e ${PROJECT_ROOT}
+-e ${PROJECT_ROOT}[pipeline]
 
 # Packages only this step needs (versions in uv.lock are applied as constraints):

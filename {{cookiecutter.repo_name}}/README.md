@@ -86,16 +86,24 @@ make pipeline ARGS="store.sync_s3=true launcher.local=true"
 
 ## Dependencies
 
-Dependencies live in `pyproject.toml` and their exact versions in `uv.lock`:
+Dependencies live in `pyproject.toml`, split by where they are installed, and their exact versions in `uv.lock`:
 
-| Where | What | Add with |
-|---|---|---|
-| `[project] dependencies` | Everything the pipeline and the steps import | `uv add scipy` |
-| `dev` group | pytest, moto, ruff, pre-commit, cookiecutter | `uv add --group dev mypy` |
-| `notebook` group | Jupyter Lab and widgets | `uv add --group notebook plotly` |
-| `eda` group | ydata-profiling, seaborn, matplotlib | `uv add --group eda sweetviz` |
+| Set | Kind | What | Installed in | Add with |
+|---|---|---|---|---|
+| base | `[project] dependencies` | What `src/core`, `src/libs` and `src/utils` import | everywhere | `uv add scipy` |
+| `pipeline` | extra | main.py, run.py and the steps (Hydra, dask, ...) | pipeline image, step environments | `uv add --optional pipeline lightgbm` |
+| `serving` | extra | The API in `src/serving` (FastAPI, uvicorn) | serving image | `uv add --optional serving orjson` |
+| `test` | group | pytest, moto, httpx | test image | `uv add --group test pytest-cov` |
+| `dev` | group | ruff, pre-commit, import-linter, cookiecutter | your machine | `uv add --group dev mypy` |
+| `notebook` | group | Jupyter Lab and widgets | your machine | `uv add --group notebook plotly` |
+| `eda` | group | ydata-profiling, seaborn, matplotlib | your machine | `uv add --group eda sweetviz` |
+| `tracking-server` | group | psycopg2 for `make mlflow-server` | your machine | |
 
-`uv add` updates `pyproject.toml`, `uv.lock` and `.venv` at once. `make venv` installs every group; `uv sync --no-group eda` skips one. Run `make outdated` to see what can be upgraded and `make upgrade` to do it.
+Extras are part of the package: an image or a step environment asks for them (`uv sync --extra serving`, `pip install -e ".[pipeline]"`). Groups are only for working on the project and never reach an image, except the test image.
+
+Your `.venv` gets everything: `make venv` runs `uv sync --all-extras`, and the targets run through `uv run --all-extras`. `uv add` updates `pyproject.toml`, `uv.lock` and `.venv` at once. Run `make outdated` to see what can be upgraded and `make upgrade` to do it.
+
+A package goes in base when every image needs it, in an extra when only that part of the project imports it, and in a group when nothing at runtime imports it.
 
 ## Pipeline steps
 

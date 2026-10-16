@@ -5,31 +5,48 @@ description = "{{cookiecutter.description}}"
 readme = "README.md"
 authors = [{ name = "{{cookiecutter.author_name}}" }]
 requires-python = ">={{cookiecutter.python_version}}"
-# Runtime dependencies: everything the pipeline and the steps import. Steps that
-# MLflow runs in their own virtualenv install the project, so they get these too.
+# Dependencies are split by where they are installed (see README > Dependencies):
+# - base: what src/core, src/libs and src/utils import; installed everywhere
+# - extras (optional-dependencies): runtime sets an image or a step environment
+#   asks for, e.g. `uv sync --extra serving` or `pip install -e ".[pipeline]"`
+# - groups (dependency-groups): only for working on the project; never in images
+#   except the test image
+# Your .venv gets everything (`make venv` runs `uv sync --all-extras`).
 dependencies = [
     "boto3",
-    "dask[dataframe]",
-    "hydra-core",
-    "hydra-joblib-launcher",
     "mlflow>=3",
     "omegaconf",
     "pandas",
-    "psycopg2-binary",
     "pyarrow",
     "python-dotenv",
     "pyyaml",
     "scikit-learn",
+]
+
+[project.optional-dependencies]
+# Running the pipeline: main.py, run.py and the steps
+pipeline = [
+    "dask[dataframe]",
+    "hydra-core",
+    "hydra-joblib-launcher",
     "statsmodels",
+]
+# The API in src/serving
+serving = [
+    "fastapi",
+    "uvicorn",
 ]
 
 [dependency-groups]
+test = [
+    "httpx",
+    "moto[s3]",
+    "pytest",
+]
 dev = [
     "cookiecutter",
     "import-linter",
-    "moto[s3]",
     "pre-commit",
-    "pytest",
     "ruff",
 ]
 notebook = [
@@ -42,10 +59,14 @@ eda = [
     "seaborn",
     "ydata-profiling",
 ]
+# `make mlflow-server` with the PostgreSQL backend
+tracking-server = [
+    "psycopg2-binary",
+]
 
 [tool.uv]
 # `uv sync` and `uv run` install every group; `uv sync --no-group eda` skips one
-default-groups = ["dev", "notebook", "eda"]
+default-groups = ["test", "dev", "notebook", "eda", "tracking-server"]
 
 [build-system]
 requires = ["hatchling"]

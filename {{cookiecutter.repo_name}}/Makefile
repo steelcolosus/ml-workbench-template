@@ -45,9 +45,11 @@ GREEN := $(shell tput setaf 2 2>/dev/null)
 WHITE  := $(shell tput -Txterm setaf 7 2>/dev/null)
 YELLOW := $(shell tput -Txterm setaf 3 2>/dev/null)
 
-# Commands: `uv run` keeps .venv in sync with uv.lock before running anything
+# Commands: `uv run` keeps .venv in sync with uv.lock before running anything.
+# Locally every extra is installed (pipeline, serving); images install only theirs.
 UV := uv
-UV_RUN := $(UV) run
+UV_SYNC := $(UV) sync --all-extras
+UV_RUN := $(UV) run --all-extras
 PYTHON := $(UV_RUN) python
 MLFLOW := $(UV_RUN) mlflow
 PYTEST := $(UV_RUN) pytest
@@ -78,16 +80,16 @@ run: ##@Development Run mlflow-server
 run-all: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
 	$(MAKE) -j 2 mlflow-server jupyter-notebook
 
-# Create .venv with the project (the packages in src/) and every dependency group
+# Create .venv with the project (the packages in src/), every extra and every group
 venv: ##@Development Create .venv and install the locked dependencies (uv sync)
-	$(UV) sync
+	$(UV_SYNC)
 
 outdated: ##@Development List direct dependencies with a newer version available
 	$(UV) tree --outdated --depth 1
 
 upgrade: ##@Development Upgrade every dependency to its latest version in uv.lock
 	$(UV) lock --upgrade
-	$(UV) sync
+	$(UV_SYNC)
 
 # run docker compose
 docker-compose: ##@Development Run docker compose

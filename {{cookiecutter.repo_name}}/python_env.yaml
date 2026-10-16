@@ -5,4 +5,4 @@ build_dependencies:
 dependencies:
     # The project (pyproject.toml). MLflow installs this from a temporary folder,
     # so the path comes from PROJECT_ROOT (set by run.py) instead of "."
-    - -e ${PROJECT_ROOT}
+    - -e ${PROJECT_ROOT}[pipeline]
