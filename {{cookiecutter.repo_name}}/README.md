@@ -53,6 +53,7 @@ Run `make help` for the full list.
 -   `run-all`: Run the MLflow server and Jupyter Lab in parallel.
 -   `pipeline`: Run the pipeline steps (`STEPS=a,b` for a subset, `ARGS="key=value"` for config overrides).
 -   `step`: Create a new MLflow step in `src/steps/` from the step template.
+-   `serve`: Run the API in `src/serving` with auto-reload.
 -   `test`: Run the tests.
 -   `lint`: Check the code with ruff (lint and format) and the package layers with import-linter.
 -   `format`: Fix lint issues and format the code with ruff.
@@ -326,6 +327,27 @@ loaded = CustomModel.load(store, "price_model")       # downloads it first when 
 
 `save` infers the signature by predicting on `sample`. `log_model=False` skips logging to MLflow, `sync=False` keeps the saved copy local and `location=` picks another store location. To register a logged model, use `libs.tracking.register_model`.
 
+## Serving
+
+`src/serving` is a FastAPI app that serves a model saved with `CustomModel.save` (or any MLflow pyfunc model saved through the store):
+
+```shell
+SERVING_MODEL_NAME=price_model make serve     # http://localhost:8000/docs
+```
+
+| Endpoint | What it does |
+|---|---|
+| `GET /health` | Liveness: the API is up. |
+| `GET /ready` | Readiness: 200 when a model is loaded, 503 otherwise. |
+| `GET /model` | The model's name and input/output schema (from its signature). |
+| `POST /predict` | `{"records": [{"column": value, ...}, ...]}` → one prediction per record; 422 when the records don't match the signature. |
+
+Interactive documentation is generated from the code at `/docs` (Swagger UI) and `/redoc`.
+
+-   `SERVING_MODEL_NAME` / `SERVING_MODEL_LOCATION` (default `models`) pick the model in the store. It's loaded at startup, downloaded first when it's missing locally and `store.sync_s3` is on; a model that can't be loaded stops the startup. Without `SERVING_MODEL_NAME` the API starts but isn't ready.
+-   The code is split into `settings.py` (environment), `schemas.py` (request and response models, which also document the API), `model.py` (loading and predicting) and `routes.py` (endpoints). Add endpoints to `routes.py`, or new routers included in `app.py`.
+-   Tests use `create_app(Settings(...), store)` with FastAPI's `TestClient`; see `tests/serving`.
+
 ## Environment Variables
 
 The project includes a .env file containing environment variables for MLflow server, PostgreSQL, and storage directories. Modify the values as needed for your environment.
@@ -345,6 +367,7 @@ To configure the project, modify the values in the .env file according to your r
 -   `POSTGRES_VOLUME`: Directory for storing PostgreSQL data.
 -   `AWS_PROFILE`, `AWS_BUCKET`, `AWS_REGION`: AWS settings used by the store.
 -   `AWS_ENDPOINT_URL`: Optional S3-compatible endpoint (e.g. the local S3 server).
+-   `SERVING_MODEL_NAME`, `SERVING_MODEL_LOCATION`, `SERVING_PORT`: The model the API serves and the port of `make serve`.
 
 ### Customization
 

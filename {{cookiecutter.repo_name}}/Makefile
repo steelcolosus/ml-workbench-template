@@ -59,7 +59,7 @@ CC := $(UV_RUN) cookiecutter
 DOWN_OPTS = --remove-orphans
 
 .PHONY: default help setup run run-all venv docker-compose mlflow-server mlflow-kill \
-	jupyter-notebook pipeline test lint format outdated upgrade hooks step login \
+	jupyter-notebook pipeline serve test lint format outdated upgrade hooks step login \
 	purge clean clean-all clean-stores clean-python down prune
 
 default: setup docker-compose run ##@Development Setup and run the mlflow server
@@ -113,6 +113,9 @@ jupyter-notebook: ##@Development Run jupyter notebook
 # make pipeline STEPS=basic_cleaning ARGS="store.sync_s3=true"
 pipeline: ##@Pipeline Run the pipeline (STEPS=a,b for a subset, ARGS for config overrides)
 	$(PYTHON) main.py "main.steps='$(or $(STEPS),all)'" $(ARGS)
+
+serve: ##@Serving Run the API locally with auto-reload (docs at /docs)
+	$(UV_RUN) uvicorn serving.app:app --reload --port $(or $(SERVING_PORT),8000)
 
 test: ##@Development Run the tests
 	$(PYTEST) tests
