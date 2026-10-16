@@ -29,6 +29,9 @@ PROJECT_ROOT := $(CURDIR)
 USER_NAME := $(shell whoami)
 # Single source of the Python version: uv reads it too
 PYTHON_VERSION := $(shell cat .python-version)
+# The images build with the same uv that wrote uv.lock
+UV_VERSION := $(shell uv --version 2>/dev/null | cut -d' ' -f2)
+IMAGE_NAME := {{cookiecutter.repo_name}}
 
 CURRENT_DIRECTORY:=$(CURDIR)
 INSTALL_DIRECTORY:=$(CURRENT_DIRECTORY)/.venv
@@ -60,6 +63,7 @@ DOWN_OPTS = --remove-orphans
 
 .PHONY: default help setup run run-all venv docker-compose mlflow-server mlflow-kill \
 	jupyter-notebook pipeline serve test lint format outdated upgrade hooks step login \
+	image docker-pipeline docker-serve docker-test \
 	purge clean clean-all clean-stores clean-python down prune
 
 default: setup docker-compose run ##@Development Setup and run the mlflow server
@@ -101,7 +105,8 @@ mlflow-server: ##@Development Run mlflow server
 		--backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${MLFLOW_BACKEND_STORE}:${POSTGRES_PORT}/${POSTGRES_DB} \
 		--artifacts-destination ${MLFLOW_ARTIFACT_STORE} \
 		--host ${MLFLOW_TRACKING_SERVER_HOST} \
-		--port ${MLFLOW_TRACKING_SERVER_PORT}
+		--port ${MLFLOW_TRACKING_SERVER_PORT} \
+		$(if $(MLFLOW_ALLOWED_HOSTS),--allowed-hosts "$(MLFLOW_ALLOWED_HOSTS)")
 
 mlflow-kill: ##@Development Kill mlflow server
 	-@lsof -t -i:${MLFLOW_TRACKING_SERVER_PORT} | xargs kill -9 2>/dev/null || true
@@ -172,6 +177,27 @@ ${MLFLOW_ARTIFACT_STORE}:
 ${POSTGRES_VOLUME}:
 	mkdir -p ${POSTGRES_VOLUME}
 
+
+# The images need uv.lock: created by `make venv`, or here when it's missing
+uv.lock: pyproject.toml
+	$(UV) lock
+
+# make image TARGET=serving
+image: uv.lock ##@Docker Build an image: TARGET=pipeline (default), serving or test
+	docker build --target $(or $(TARGET),pipeline) \
+		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) --build-arg UV_VERSION=$(UV_VERSION) \
+		-t $(IMAGE_NAME):$(or $(TARGET),pipeline) .
+
+# make docker-pipeline STEPS=basic_cleaning ARGS="store.sync_s3=true"
+docker-pipeline: uv.lock ##@Docker Run the pipeline in its image (STEPS and ARGS as in `make pipeline`)
+	docker compose --profile pipeline run --rm --build pipeline \
+		"main.steps='$(or $(STEPS),all)'" $(ARGS)
+
+docker-serve: uv.lock ##@Docker Run the API in its image on SERVING_PORT (SERVING_MODEL_NAME=...)
+	docker compose --profile serving up --build serving
+
+docker-test: uv.lock ##@Docker Run the tests in the test image
+	docker compose --profile test run --rm --build test
 
 # make step ARGS="--no-input step_name=basic_cleaning" skips the prompts
 step: ##@Development Create a new MLflow step in src/steps/ from the step template

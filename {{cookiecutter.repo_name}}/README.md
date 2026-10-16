@@ -55,6 +55,8 @@ Run `make help` for the full list.
 -   `step`: Create a new MLflow step in `src/steps/` from the step template.
 -   `serve`: Run the API in `src/serving` with auto-reload.
 -   `test`: Run the tests.
+-   `image`: Build an image (`TARGET=pipeline`, `serving` or `test`).
+-   `docker-pipeline`, `docker-serve`, `docker-test`: Run the pipeline, the API or the tests in their image.
 -   `lint`: Check the code with ruff (lint and format) and the package layers with import-linter.
 -   `format`: Fix lint issues and format the code with ruff.
 -   `hooks`: Install the pre-commit hooks (ruff on every commit).
@@ -348,6 +350,31 @@ Interactive documentation is generated from the code at `/docs` (Swagger UI) and
 -   The code is split into `settings.py` (environment), `schemas.py` (request and response models, which also document the API), `model.py` (loading and predicting) and `routes.py` (endpoints). Add endpoints to `routes.py`, or new routers included in `app.py`.
 -   Tests use `create_app(Settings(...), store)` with FastAPI's `TestClient`; see `tests/serving`.
 
+## Docker
+
+The `Dockerfile` builds one image per target, each with only the dependency set it needs (see [Dependencies](#dependencies)):
+
+| Target | Installs | Runs | Make |
+|---|---|---|---|
+| `pipeline` | base + `pipeline` extra | `python main.py`; arguments are Hydra overrides | `make docker-pipeline STEPS=... ARGS="..."` |
+| `serving` | base + `serving` extra | the API on port 8000, as a non-root user | `make docker-serve SERVING_MODEL_NAME=price_model` |
+| `test` | base + every extra + `test` group | `pytest` | `make docker-test` |
+
+`make image TARGET=serving` builds one image (`{{cookiecutter.repo_name}}:serving`). The `docker-*` targets build and run them through the `pipeline`, `serving` and `test` services in `docker-compose.yml`, which `make` / `docker compose up` don't start.
+
+How it works:
+
+-   `--target` picks the image. Docker builds that stage and only the stages it copies from: `pipeline` copies from `pipeline-deps`, which runs `uv sync --extra pipeline`, so the serving and test dependencies are never installed in it.
+-   Each `*-deps` stage installs the dependencies from `uv.lock` before copying the code, so that layer is reused until `pyproject.toml` or `uv.lock` change. The final images contain only Python, `.venv` and the code (no uv or caches).
+-   `.dockerignore` keeps `.venv`, `data/`, `models/`, `.env` files, notebooks and local tracking out of the images; the compose services mount `data/` and `models/` instead.
+-   The images need `uv.lock` (`make venv` creates it) and use the same Python (`.python-version`) and uv as your machine.
+
+Running the pipeline in Docker:
+
+-   Steps run in the image's environment (`launcher.env_manager=local`).
+-   Inside a container `localhost` is the container, so the service sets `MLFLOW_TRACKING_URI=http://host.docker.internal:5000` to reach the MLflow server on your machine (`make run`); change it with `DOCKER_MLFLOW_TRACKING_URI`. The server only accepts that host name because `MLFLOW_ALLOWED_HOSTS` in `.env` includes it.
+-   `~/.aws` is mounted read-only for `store.sync_s3`, so profiles and `make login` (SSO) work in the containers.
+
 ## Environment Variables
 
 The project includes a .env file containing environment variables for MLflow server, PostgreSQL, and storage directories. Modify the values as needed for your environment.
@@ -364,6 +391,7 @@ To configure the project, modify the values in the .env file according to your r
 -   `MLFLOW_ARTIFACT_STORE`: Directory for storing MLflow artifacts.
 -   `MLFLOW_TRACKING_SERVER_HOST`: Host for the MLflow tracking server.
 -   `MLFLOW_TRACKING_SERVER_PORT`: Port for the MLflow tracking server.
+-   `MLFLOW_ALLOWED_HOSTS`: Host headers the MLflow server accepts (localhost and `host.docker.internal` for the pipeline image).
 -   `POSTGRES_VOLUME`: Directory for storing PostgreSQL data.
 -   `AWS_PROFILE`, `AWS_BUCKET`, `AWS_REGION`: AWS settings used by the store.
 -   `AWS_ENDPOINT_URL`: Optional S3-compatible endpoint (e.g. the local S3 server).

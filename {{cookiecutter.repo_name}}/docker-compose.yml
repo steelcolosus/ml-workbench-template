@@ -26,3 +26,60 @@ services:
     profiles: ["s3-local"]
     ports:
       - ${S3_LOCAL_PORT:-9000}:5000
+
+  # The project's images (Dockerfile). They aren't started by `make` /
+  # `docker compose up`: use `make docker-pipeline`, `make docker-serve` and
+  # `make docker-test`.
+  pipeline:
+    profiles: ["pipeline"]
+    image: {{cookiecutter.repo_name}}:pipeline
+    build:
+      context: .
+      target: pipeline
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
+        UV_VERSION: ${UV_VERSION:-0.6.6}
+    env_file:
+      - path: ${ENV_FILE:-.env}
+        required: false
+    environment:
+      # Inside a container localhost is the container: reach the MLflow server
+      # running on your machine (`make run`)
+      MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI:-http://host.docker.internal:5000}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      # AWS profiles and SSO logins (`make login`) for store.sync_s3
+      - ${HOME}/.aws:/root/.aws:ro
+
+  serving:
+    profiles: ["serving"]
+    image: {{cookiecutter.repo_name}}:serving
+    build:
+      context: .
+      target: serving
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
+        UV_VERSION: ${UV_VERSION:-0.6.6}
+    env_file:
+      - path: ${ENV_FILE:-.env}
+        required: false
+    environment:
+      SERVING_MODEL_NAME: ${SERVING_MODEL_NAME:-}
+    ports:
+      - ${SERVING_PORT:-8000}:8000
+    volumes:
+      - ./models:/app/models
+      - ${HOME}/.aws:/home/app/.aws:ro
+
+  test:
+    profiles: ["test"]
+    image: {{cookiecutter.repo_name}}:test
+    build:
+      context: .
+      target: test
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
+        UV_VERSION: ${UV_VERSION:-0.6.6}

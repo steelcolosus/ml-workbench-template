@@ -1,0 +1,19 @@
+# Only code and config go into the images: environments, data, models, local
+# tracking and secrets stay out (mount data/ and models/ as volumes instead)
+.git
+.venv
+.mlflow-envs
+.ruff_cache
+.pytest_cache
+**/__pycache__
+data/
+models/
+mlruns/
+mlartifacts/
+outputs/
+multirun/
+notebooks/
+docs/
+*.db
+.env
+.env.*
