@@ -45,6 +45,25 @@ def find_project_config(start=None) -> Path:
     )
 
 
+def with_absolute_root(config: DictConfig, base) -> DictConfig:
+    """
+    Make `config.root` absolute, resolving a relative one (e.g. "." when
+    $PROJECT_ROOT isn't set) from `base`, the folder of config.yaml. Paths built
+    on ${root} then don't depend on the directory you run from.
+    """
+    if "root" in config:
+        root = Path(str(config.root))
+        if not root.is_absolute():
+            config.root = str((Path(base) / root).resolve())
+    return config
+
+
+def load_project_config(path=None) -> DictConfig:
+    """The project's config.yaml (found with find_project_config), root absolute."""
+    path = Path(path) if path else find_project_config()
+    return with_absolute_root(OmegaConf.load(path), path.parent)
+
+
 def load_step_config(step: str, config_path: str = None) -> DictConfig:
     """
     A step's config: the file main.py serialized for it (`config_path`) or, when
@@ -54,7 +73,7 @@ def load_step_config(step: str, config_path: str = None) -> DictConfig:
     if config_path:
         return OmegaConf.load(config_path)
 
-    project = OmegaConf.load(find_project_config())
+    project = load_project_config()
     section = project.get(step)
     if section is None:
         return OmegaConf.create({})

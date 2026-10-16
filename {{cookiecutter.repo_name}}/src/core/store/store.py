@@ -28,7 +28,7 @@ import yaml
 
 from core.store.engines import DataEngine, default_engines, infer_format
 from core.store.remote import RemoteStorage, S3Storage
-from utils.config import find_project_config
+from utils.config import find_project_config, load_project_config
 from utils.files import remove_path, replace_path, tmp_sibling
 from utils.log import get_logger
 
@@ -159,7 +159,7 @@ class Store:
             )
 
         project_config = find_project_config()
-        config = OmegaConf.load(project_config)
+        config = load_project_config(project_config)
         if "store" not in config:
             raise KeyError(f"{project_config} has no `store` section")
         return cls.from_config(config.store, base_dir=project_config.parent, **kwargs)

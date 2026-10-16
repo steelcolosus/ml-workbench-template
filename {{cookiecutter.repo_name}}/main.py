@@ -11,6 +11,7 @@ from libs.tracking import (
     managed_run,
     prepare_step_environment,
 )
+from utils.config import with_absolute_root
 from utils.log import get_logger
 
 _steps = [
@@ -41,7 +42,9 @@ def go(config: DictConfig):
     if unknown_steps:
         raise ValueError(f"Unknown steps {unknown_steps}. Available: {_steps}")
 
-    root_path = Path(config["root"]).resolve()
+    # A relative root ($PROJECT_ROOT unset) is resolved from this folder
+    with_absolute_root(config, Path(__file__).parent)
+    root_path = Path(config["root"])
     is_local = bool(config["launcher"]["local"])
     tracking_uri = configure_tracking(root_path=str(root_path), is_local=is_local)
     env_manager = "local" if is_local else config["launcher"]["env_manager"]

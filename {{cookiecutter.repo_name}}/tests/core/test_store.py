@@ -360,3 +360,19 @@ def test_project_config_builds_a_store(monkeypatch):
 
     assert store.path("raw") == Path(PROJECT_ROOT).resolve() / "data" / "raw"
     assert store.path("models") == Path(PROJECT_ROOT).resolve() / "models"
+
+
+def test_root_based_locations_dont_depend_on_where_you_run(tmp_path, monkeypatch):
+    (tmp_path / "config.yaml").write_text(
+        "root: ${oc.env:PROJECT_ROOT,.}\n"
+        "store:\n"
+        "  local_root: ${root}/data\n"
+        "  locations:\n"
+        "    models:\n"
+        "      path: ${root}/models\n"
+    )
+    monkeypatch.delenv(STORE_CONFIG_ENV, raising=False)
+    monkeypatch.delenv("PROJECT_ROOT", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert Store.from_env().path("models") == (tmp_path / "models").resolve()

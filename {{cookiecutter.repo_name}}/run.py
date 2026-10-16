@@ -10,6 +10,7 @@ from libs.tracking import (
     managed_run,
     prepare_step_environment,
 )
+from utils.config import with_absolute_root
 from utils.log import get_logger
 
 logger = get_logger("RUN")
@@ -17,7 +18,9 @@ logger = get_logger("RUN")
 
 @hydra.main(config_name="config", config_path=".", version_base=None)
 def go(config: DictConfig):
-    root_path = str(Path(config["root"]).resolve())
+    # A relative root ($PROJECT_ROOT unset) is resolved from this folder
+    with_absolute_root(config, Path(__file__).parent)
+    root_path = str(config["root"])
 
     tracking_uri = configure_tracking(
         root_path=root_path,
