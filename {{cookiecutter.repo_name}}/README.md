@@ -2,6 +2,8 @@
 
 {{cookiecutter.description}}
 
+> New here? [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how the project is organized, how a pipeline run works, and every package, helper and library it uses. This README has the commands.
+
 This is a Makefile-based project designed to set up a development environment for running MLflow server and Jupyter Notebook in parallel. It uses [uv](https://docs.astral.sh/uv/) to create the virtual environment from `pyproject.toml` and `uv.lock`, sets up a Docker Compose environment, and manages storage for artifacts and PostgreSQL.
 
 ## Requirements

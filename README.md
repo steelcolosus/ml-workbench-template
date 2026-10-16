@@ -5,6 +5,8 @@ Generates an ML project with:
 -   an MLflow tracking server on PostgreSQL (Docker Compose), or local tracking in SQLite;
 -   a Hydra-configured pipeline whose steps are MLflow projects, each a subclass of `core.step.Step`;
 -   a local-first data store with optional S3 sync (`core.store.Store`);
+-   a FastAPI app that serves the project's models (`src/serving`);
+-   a Dockerfile with separate pipeline, serving and test images, each with only its dependencies;
 -   [uv](https://docs.astral.sh/uv/) for dependencies, ruff, pre-commit, import-linter and pytest.
 
 ## Usage
@@ -31,6 +33,7 @@ make venv       # create .venv with uv
 make test       # check the setup
 make step       # create a pipeline step in src/steps/ (asks for its name and parameters)
 make pipeline   # run the steps listed in main.py
+make serve      # run the API (SERVING_MODEL_NAME=<model>)
 make help       # every target
 ```
 
@@ -46,9 +49,10 @@ src/
 templates/
   step/        Cookiecutter template used by `make step`
 tests/
-main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compose.yml
+docs/ARCHITECTURE.md
+main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  Dockerfile  docker-compose.yml
 ```
 
-The generated project's README covers the pipeline, the store and the targets. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.
+The generated project's `docs/ARCHITECTURE.md` explains the architecture: how a pipeline run flows through the code, every package and helper, the libraries, and recipes for common tasks. Its README covers the commands. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.
 
 Projects generated before a template change keep their own copy of `templates/step`; copy the folder over to update it.

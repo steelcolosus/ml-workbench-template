@@ -1,5 +1,5 @@
-# Absolute project root. `make` exports PROJECT_ROOT; without it, paths are
-# resolved from the directory you launch from.
+# Project root. `make` exports PROJECT_ROOT; without it, the relative "." is
+# resolved from this file's folder, wherever you run from.
 root: ${oc.env:PROJECT_ROOT,.}
 
 main:
