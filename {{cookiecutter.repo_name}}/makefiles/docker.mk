@@ -1,4 +1,4 @@
-# The project's images (Dockerfile) and running them through docker-compose.yml
+# The project's images (docker/Dockerfile) and running them through docker-compose.yml
 
 .PHONY: image docker-pipeline docker-serve docker-test
 
@@ -8,7 +8,7 @@ uv.lock: pyproject.toml
 
 # make image TARGET=serving
 image: uv.lock ##@Docker Build an image: TARGET=pipeline (default), serving or test
-	docker build --target $(or $(TARGET),pipeline) \
+	docker build -f docker/Dockerfile --target $(or $(TARGET),pipeline) \
 		--build-arg PYTHON_VERSION=$(PYTHON_VERSION) --build-arg UV_VERSION=$(UV_VERSION) \
 		-t $(IMAGE_NAME):$(or $(TARGET),pipeline) .
 

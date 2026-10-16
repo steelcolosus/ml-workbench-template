@@ -354,7 +354,7 @@ Interactive documentation is generated from the code at `/docs` (Swagger UI) and
 
 ## Docker
 
-The `Dockerfile` builds one image per target, each with only the dependency set it needs (see [Dependencies](#dependencies)):
+`docker/Dockerfile` builds one image per target, each with only the dependency set it needs (see [Dependencies](#dependencies)):
 
 | Target | Installs | Runs | Make |
 |---|---|---|---|
@@ -368,7 +368,8 @@ How it works:
 
 -   `--target` picks the image. Docker builds that stage and only the stages it copies from: `pipeline` copies from `pipeline-deps`, which runs `uv sync --extra pipeline`, so the serving and test dependencies are never installed in it.
 -   Each `*-deps` stage installs the dependencies from `uv.lock` before copying the code, so that layer is reused until `pyproject.toml` or `uv.lock` change. The final images contain only Python, `.venv` and the code (no uv or caches).
--   `.dockerignore` keeps `.venv`, `data/`, `models/`, `.env` files, notebooks and local tracking out of the images; the compose services mount `data/` and `models/` instead.
+-   The build context is the project root. `docker/Dockerfile.dockerignore` (Docker reads the ignore file named after the Dockerfile) keeps `.venv`, `data/`, `models/`, `.env` files, notebooks and local tracking out of the images; the compose services mount `data/` and `models/` instead.
+-   To give an image its own base or files later, add `docker/<image>.Dockerfile` with its own `docker/<image>.Dockerfile.dockerignore`, and point its compose service and make target at it.
 -   The images need `uv.lock` (`make venv` creates it) and use the same Python (`.python-version`) and uv as your machine.
 
 Running the pipeline in Docker:

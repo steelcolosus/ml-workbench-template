@@ -52,7 +52,7 @@ run.py         Runs main.py as an MLflow project
 MLProject      The root MLflow project used by run.py
 config.yaml    All configuration
 pyproject.toml Dependencies and tool settings; uv.lock has the exact versions
-Dockerfile     pipeline, serving and test images
+docker/        Dockerfile (pipeline, serving and test images) and its ignore file
 Makefile       The main commands; includes makefiles/
 makefiles/     The other targets by area (dev, mlflow, infra, docker, clean) and common.mk
 ```
@@ -272,7 +272,7 @@ store.save_artifact("analytics", "eda/report.html",
 
 | Library | Used for | Where |
 |---|---|---|
-| [uv](https://docs.astral.sh/uv/) | Environments, locking (`uv.lock`) and running commands | Makefile, Dockerfile, step environments |
+| [uv](https://docs.astral.sh/uv/) | Environments, locking (`uv.lock`) and running commands | Makefile, docker/Dockerfile, step environments |
 | [Hydra](https://hydra.cc/) / [OmegaConf](https://omegaconf.readthedocs.io/) | Loading `config.yaml`, command-line overrides, `${...}` interpolation | `main.py`, `run.py`; OmegaConf everywhere config is read |
 | [MLflow](https://mlflow.org/) | Tracking runs, running steps as projects, saving and loading models, the model registry | `libs.tracking`, `libs.pipeline`, `core.step`, `core.model` |
 | PostgreSQL | MLflow's backend store for the tracking server | `docker-compose.yml`, `make mlflow-server` |
@@ -287,7 +287,7 @@ store.save_artifact("analytics", "eda/report.html",
 | [import-linter](https://import-linter.readthedocs.io/) | Enforcing the package layers | `make lint` |
 | pre-commit | ruff on every commit | `make hooks` |
 | cookiecutter | Generating steps from `templates/step` | `make step` |
-| Docker, Docker Compose | PostgreSQL, the local S3 server, the project's images | `docker-compose.yml`, `Dockerfile` |
+| Docker, Docker Compose | PostgreSQL, the local S3 server, the project's images | `docker-compose.yml`, `docker/Dockerfile` |
 
 ## Where code runs
 

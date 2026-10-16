@@ -1,3 +1,4 @@
+# Used by docker/Dockerfile (Docker reads <Dockerfile>.dockerignore next to it).
 # Only code and config go into the images: environments, data, models, local
 # tracking and secrets stay out (mount data/ and models/ as volumes instead)
 .git
@@ -17,3 +18,4 @@ docs/
 *.db
 .env
 .env.*
+docker/

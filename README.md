@@ -51,7 +51,8 @@ templates/
 tests/
 docs/ARCHITECTURE.md
 makefiles/     Targets by area; the Makefile keeps the main commands
-main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  Dockerfile  docker-compose.yml
+docker/        Dockerfile (pipeline, serving and test images)
+main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compose.yml
 ```
 
 The generated project's `docs/ARCHITECTURE.md` explains the architecture: how a pipeline run flows through the code, every package and helper, the libraries, and recipes for common tasks. Its README covers the commands. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.

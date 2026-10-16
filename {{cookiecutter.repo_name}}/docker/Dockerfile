@@ -3,13 +3,17 @@
 # One image per target, each with only the dependency set it needs
 # (see README > Docker):
 #
-#   docker build --target pipeline .   base + pipeline extra; runs main.py
-#   docker build --target serving .    base + serving extra; runs the API
-#   docker build --target test .       base + every extra + test group; runs pytest
+#   docker build -f docker/Dockerfile --target pipeline .   base + pipeline extra; runs main.py
+#   docker build -f docker/Dockerfile --target serving .    base + serving extra; runs the API
+#   docker build -f docker/Dockerfile --target test .       base + every extra + test group; runs pytest
 #
 # --target picks the image: Docker builds that stage and only the stages it
 # copies from, so each image installs its own set. `make image TARGET=...`
 # passes the project's Python and uv versions. Needs uv.lock (`make venv`).
+#
+# The build context is the project root (the final "."), so the paths below are
+# relative to it. Dockerfile.dockerignore, next to this file, decides what goes
+# into that context.
 
 ARG PYTHON_VERSION={{cookiecutter.python_version}}
 ARG UV_VERSION=0.6.6
@@ -78,7 +82,7 @@ USER app
 EXPOSE 8000
 CMD ["uvicorn", "serving.app:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# Last, so it's also what `docker build .` builds without --target.
+# Last, so it's also what a build without --target produces.
 # Steps run in the image's environment; arguments are Hydra overrides, e.g.
 # `docker run <image> main.steps=basic_cleaning store.sync_s3=true`
 FROM python AS pipeline
