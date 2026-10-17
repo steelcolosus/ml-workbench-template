@@ -278,6 +278,7 @@ store.save_artifact("analytics", "eda/report.html",
 | pytest, moto, httpx | Tests; moto fakes S3, httpx powers FastAPI's TestClient | `tests/` (`test` group) |
 | ruff | Linting and formatting | `make lint`, `make format`, pre-commit |
 | [import-linter](https://import-linter.readthedocs.io/) | Enforcing the package layers | `make lint` |
+| [hadolint](https://github.com/hadolint/hadolint) | Linting the Dockerfiles | `make lint`, pre-commit |
 | pre-commit | ruff on every commit | `make hooks` |
 | cookiecutter | Generating steps from `templates/step` | `make step` |
 | Docker, Docker Compose | PostgreSQL, the local S3 server, the project's images | `docker-compose.yml`, `docker/` (built with `docker buildx bake`) |
@@ -316,6 +317,8 @@ store.save_artifact("analytics", "eda/report.html",
 **Add a storage backend or DataFrame engine**: subclass `RemoteStorage` or `DataEngine` (see [core.store](#corestore)) and pass it to the store; `Store.from_env(remote=..., engines=...)` in steps.
 
 **Add a make target**: everyday commands go in the `Makefile`; anything else in the matching `makefiles/<area>.mk`, or a new file added to the `include` line at the end of the `Makefile`. Variables from `makefiles/common.mk` (`$(UV_RUN)`, `$(PYTHON)`, the `.env` values) are available everywhere. Add `##@<Group> description` after the target to list it in `make help`, and the target to that file's `.PHONY`.
+
+**Push the images to ECR**: create the repository once (`aws ecr create-repository --repository-name <name>`), then `make ecr-login REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com/` and `make push REGISTRY=...` (README > Docker).
 
 **Run everything in Docker**: `make run` (PostgreSQL and the MLflow server), then `make docker-pipeline` or `make docker-serve SERVING_MODEL_NAME=...`. See the README's Docker section to add an image.
 

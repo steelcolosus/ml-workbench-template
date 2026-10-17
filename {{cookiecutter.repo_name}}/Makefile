@@ -44,10 +44,11 @@ serve: ##@Main Run the API locally with auto-reload (docs at /docs)
 test: ##@Main Run the tests
 	$(PYTEST) tests
 
-lint: ##@Main Lint the code with ruff and check the package layers
+lint: ##@Main Lint the code (ruff), the package layers and the Dockerfiles
 	$(RUFF) check .
 	$(RUFF) format --check .
 	$(UV_RUN) lint-imports
+	@$(MAKE) --no-print-directory lint-docker
 
 format: ##@Main Fix lint issues and format the code with ruff
 	$(RUFF) check --fix .

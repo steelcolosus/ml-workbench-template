@@ -59,8 +59,10 @@ The `Makefile` holds the main commands; the rest live in `makefiles/`, one file 
 -   `test`: Run the tests.
 -   `image`: Build one image (`TARGET=pipeline` or `serving`).
 -   `images`: Build every image.
+-   `push`: Build and push images to `REGISTRY` (`TARGET=...` for one); `ecr-login` logs Docker in to ECR.
+-   `lint-docker`: Lint the Dockerfiles with hadolint (part of `make lint`).
 -   `docker-pipeline`, `docker-serve`: Build and run the pipeline or the API in its image.
--   `lint`: Check the code with ruff (lint and format) and the package layers with import-linter.
+-   `lint`: Check the code with ruff (lint and format), the package layers with import-linter and the Dockerfiles with hadolint (needs Docker).
 -   `format`: Fix lint issues and format the code with ruff.
 -   `hooks`: Install the pre-commit hooks (ruff on every commit).
 -   `clean`: Stop the project containers.
@@ -386,6 +388,21 @@ How it works:
 -   To add an image: write `docker/<name>.Dockerfile` (starting `FROM builder`) and its `.dockerignore`, add a `target "<name>"` to `docker-bake.hcl` (inheriting `_image`), and a service in `docker-compose.yml` if you want to run it from `make`.
 -   The images need `uv.lock` (`make venv` creates it). Tests don't have an image: run `make test`, which is what CI should run too.
 
+Tags, labels and registries:
+
+-   Each image is tagged `<name>:<image>` and `<name>:<image>-<version>` (the version in `pyproject.toml`), and carries the standard OCI labels: version, git commit (`org.opencontainers.image.revision`) and source repository.
+-   `make push` builds and pushes to the registry in `REGISTRY` (in `.env` or on the command line, ending in `/`). For ECR:
+
+    ```shell
+    aws ecr create-repository --repository-name {{cookiecutter.repo_name}}   # once
+    make ecr-login REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com/
+    make push REGISTRY=123456789012.dkr.ecr.us-east-1.amazonaws.com/          # or TARGET=serving
+    ```
+
+    To try it without AWS, run a local registry (`docker run -d -p 5005:5000 registry:2`) and `make push REGISTRY=localhost:5005/`.
+-   The Python base image follows `.python-version` (`python:<version>-slim`), so rebuilding picks up its security updates. For fully reproducible builds, pin it to a digest in `.env`: `PYTHON_IMAGE=python:{{cookiecutter.python_version}}-slim@sha256:<digest>` (get it with `docker buildx imagetools inspect python:{{cookiecutter.python_version}}-slim`), and update it on purpose.
+-   `make lint` checks the Dockerfiles with hadolint, and so does the pre-commit hook.
+
 Running the pipeline in Docker:
 
 -   Steps run in the image's environment (`launcher.env_manager=local`).
@@ -414,6 +431,7 @@ To configure the project, modify the values in the .env file according to your r
 -   `AWS_PROFILE`, `AWS_BUCKET`, `AWS_REGION`: AWS settings used by the store.
 -   `AWS_ENDPOINT_URL`: Optional S3-compatible endpoint (e.g. the local S3 server).
 -   `SERVING_MODEL_NAME`, `SERVING_MODEL_LOCATION`, `SERVING_PORT`: The model the API serves and the port of `make serve`.
+-   `REGISTRY`: Where `make push` pushes the images. `PYTHON_IMAGE`: Optional digest-pinned Python base image.
 
 ### Customization
 

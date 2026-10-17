@@ -33,6 +33,10 @@ PYTHON_VERSION := $(shell cat .python-version)
 # The images build with the same uv that wrote uv.lock
 UV_VERSION := $(shell uv --version 2>/dev/null | cut -d' ' -f2)
 IMAGE_NAME := {{cookiecutter.repo_name}}
+# Image labels (docker/docker-bake.hcl)
+PROJECT_VERSION := $(shell sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)
+GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null)
+SOURCE_URL := $(shell git remote get-url origin 2>/dev/null)
 
 CURRENT_DIRECTORY:=$(CURDIR)
 INSTALL_DIRECTORY:=$(CURRENT_DIRECTORY)/.venv

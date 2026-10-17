@@ -5,12 +5,17 @@
 # docker-compose.yml runs it with the PostgreSQL backend; build it with
 # `make image TARGET=mlflow` (docker-bake.hcl provides `builder` and `runtime`).
 
+# `builder` and `runtime` are stages bake passes in (see docker-bake.hcl), not
+# registry images, so hadolint's "tag the image version" rule doesn't apply.
+# hadolint ignore=DL3006
 FROM builder AS build
+WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     uv sync --no-install-project --no-default-groups --extra tracking-server
 
+# hadolint ignore=DL3006
 FROM runtime
 COPY --from=build /app/.venv /app/.venv
 EXPOSE 5000

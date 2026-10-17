@@ -7,3 +7,10 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  # Lints the Dockerfiles in docker/ (runs hadolint's Docker image)
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+        files: \.Dockerfile$
+        types: [file]
