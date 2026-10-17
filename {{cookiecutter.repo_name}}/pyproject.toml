@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "{{cookiecutter.description}}"
 readme = "README.md"
 authors = [{ name = "{{cookiecutter.author_name}}" }]
+{%- if cookiecutter.open_source_license != "No license file" %}
+license = "{{ cookiecutter.open_source_license }}"
+license-files = ["LICENSE"]
+{%- endif %}
 requires-python = ">={{cookiecutter.python_version}}"
 # Dependencies are split by where they are installed (see README > Dependencies):
 # - base: what src/core, src/libs and src/utils import; installed everywhere

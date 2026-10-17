@@ -19,10 +19,10 @@ uvx cookiecutter [path or URL of this repo] -o [destination directory]
 |---|---|
 | `project_name` | The README title. |
 | `repo_name` | Project folder, package and MLflow project name, experiment prefix (`<repo_name>_<experiment_name>`) and default S3 prefix (`ml/<repo_name>`). Derived from `project_name`. |
-| `author_name` | `pyproject.toml`. |
+| `author_name` | `pyproject.toml` and the copyright line in `LICENSE`. |
 | `experiment_name` | The MLflow experiment, with `repo_name` as prefix. |
 | `description` | The README and `pyproject.toml`. |
-| `open_source_license` | Not used yet. |
+| `open_source_license` | The `LICENSE` file (with the current year and `author_name`) and `license` in `pyproject.toml`. `No license file` creates neither. |
 | `s3_bucket`, `aws_profile`, `aws_region` | `example.env` (`AWS_BUCKET`, `AWS_PROFILE`, `AWS_REGION`), read by the store when S3 sync is on. |
 | `python_version` | `.python-version`, `requires-python` in `pyproject.toml` and the MLflow `python_env.yaml`. |
 

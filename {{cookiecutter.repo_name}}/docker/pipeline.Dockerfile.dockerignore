@@ -5,6 +5,7 @@
 !uv.lock
 !.python-version
 !README.md
+!LICENSE
 !config.yaml
 !main.py
 !run.py
