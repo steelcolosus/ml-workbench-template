@@ -58,3 +58,12 @@ main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compos
 The generated project's `docs/ARCHITECTURE.md` explains the architecture: how a pipeline run flows through the code, every package and helper, the libraries, and recipes for common tasks. Its README covers the commands. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.
 
 Projects generated before a template change keep their own copy of `templates/step`; copy the folder over to update it.
+
+## Working on the template
+
+```shell
+make test       # render the template in every configuration and check the files (seconds)
+make test-all   # also generate a project and run its make venv, lint, test and step, and build its images (minutes; needs Docker)
+```
+
+The tests live in `tests/`: `test_render.py` checks the rendered files (no leftover template markers, every Python, YAML and TOML file parses, the license options, the step template and its hooks), and `test_generated_project.py` runs a generated project's own commands. The GitHub Actions workflow in `.github/workflows/template.yml` runs both on every pull request and push to `main`.

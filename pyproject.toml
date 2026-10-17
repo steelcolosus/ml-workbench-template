@@ -1,0 +1,22 @@
+# Tooling for working on the template itself (the generated project has its own
+# pyproject.toml in {{cookiecutter.repo_name}}/). Not a package.
+[project]
+name = "ml-workbench-template"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[dependency-groups]
+dev = [
+    "cookiecutter",
+    "pytest",
+    "pyyaml",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: generates a project and runs its own make targets (minutes; needs uv and Docker)",
+]
