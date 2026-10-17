@@ -20,6 +20,7 @@ clean-python:
 	rm -rf .eggs/
 	rm -rf .pytest_cache
 	rm -rf .ruff_cache
+	rm -rf .import_linter_cache
 	rm -rf .mlflow-envs
 	find . -name '.eggs' -type d -exec rm -rf {} +
 	find . -name '*.egg-info' -exec rm -rf {} +

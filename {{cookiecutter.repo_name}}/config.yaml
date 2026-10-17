@@ -1,3 +1,15 @@
+# Hydra only loads this file: logging is configured by utils.log (one format for
+# main.py and the steps), and runs don't create outputs/<date>/ folders
+defaults:
+    - override hydra/job_logging: none
+    - override hydra/hydra_logging: none
+    - _self_
+
+hydra:
+    output_subdir: null
+    run:
+        dir: .
+
 # Project root. `make` exports PROJECT_ROOT; without it, the relative "." is
 # resolved from this file's folder, wherever you run from.
 root: ${oc.env:PROJECT_ROOT,.}
