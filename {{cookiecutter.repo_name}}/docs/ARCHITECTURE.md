@@ -299,7 +299,8 @@ store.save_artifact("analytics", "eda/report.html",
 1.  `make step` and answer the prompts. Parameters are the values you'll pass from `main.py` (typically `input_artifact,output_artifact`); everything else goes in the config section.
 2.  Paste the block the hook prints into `main.py` (and add the name to `_steps`), and the section into `config.yaml`.
 3.  Implement `run()`: read with `self.store.load_data(...)`, use `self.config`, save with `self.store.save_data(...)` or `save_artifact(...)`.
-4.  Try it alone with `uv run mlflow run src/steps/<step> --env-manager local -P ...`, then in the pipeline with `make pipeline STEPS=<step>`.
+4.  Write its test in `tests/steps/test_<step>.py` (created by `make step`, skipped until you do): put input data in the temporary `store`, call `run_step(tmp_path, config=..., **parameters)` and check what the step saved.
+5.  Try it alone with `uv run mlflow run src/steps/<step> --env-manager local -P ...`, then in the pipeline with `make pipeline STEPS=<step>`.
 
 **Add a data location**: add it under `store.locations` (`path`, and `bucket` / `prefix` when it syncs somewhere other than the defaults). Steps use it by name.
 
@@ -323,6 +324,7 @@ store.save_artifact("analytics", "eda/report.html",
 -   Stores in tests point at `tmp_path` folders; S3 is faked with moto (`tests/core/test_store.py`), and a fake in-memory backend and engine show the extension points (`tests/core/test_store_extensions.py`).
 -   MLflow tests use a SQLite tracking URI in `tmp_path` and restore the previous one afterwards.
 -   `tests/libs/test_pipeline.py` runs a real step through `mlflow.run`, and `tests/serving` uses FastAPI's `TestClient` with `create_app(Settings(...), store)`.
+-   `tests/steps/test_<step>.py`, one per step from `make step`, run the step's `main()` against a temporary store with `run_step()`.
 
 ## Conventions and gotchas
 

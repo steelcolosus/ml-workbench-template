@@ -115,7 +115,7 @@ A package goes in base when every image needs it, in an extra when only that par
 
 Each step is an MLflow project in `src/steps/<step>`:
 
-1. Create it with `make step`. It asks for the step's name and parameters (`input_artifact,output_artifact` by default) and prints what to add to `main.py` and `config.yaml`; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts. See `templates/step/README.md`.
+1. Create it with `make step`. It asks for the step's name and parameters (`input_artifact,output_artifact` by default), creates `tests/steps/test_<step>.py` (skipped until you write it) and prints what to add to `main.py` and `config.yaml`; `make step ARGS="--no-input step_name=basic_cleaning"` skips the prompts. See `templates/step/README.md`.
 2. Add its name to `_steps` in `main.py`, in execution order, and run it in its own block (the step's hook prints this block):
 
 ```python

@@ -23,4 +23,5 @@ Skip the prompts with `make step ARGS="--no-input step_name=data_check parameter
 
 -   `MLproject`: the parameters, all `type: string`. Set their types and descriptions.
 -   `run.py`: the `Step` subclass. Set the argument types and help in `add_arguments` and implement `run()`.
+-   `tests/steps/test_<step_name>.py` (moved there by the hook): a `run_step()` helper that runs the step like main.py does (its config section from a file, the project's store locations in a temporary folder, MLflow in a temporary SQLite file) and a test that is skipped until you write it. If the file already exists it's kept.
 -   `python_env.yaml` and `requirements.txt`: used when the pipeline runs with `launcher.env_manager=uv` or `virtualenv`. The step's `requirements.txt` installs the project itself (the packages in `src/` and the dependencies in `pyproject.toml`). Packages that only this step needs go below it; packages the whole project uses go in `pyproject.toml` (`uv add <package>`).
