@@ -69,6 +69,9 @@ notebook = [
 eda = [
     "matplotlib",
     "seaborn",
+    # ydata-profiling imports pkg_resources without declaring it; setuptools 81
+    # removed it. Drop this pin once ydata-profiling stops using it.
+    "setuptools<81",
     "ydata-profiling",
 ]
 [tool.uv]

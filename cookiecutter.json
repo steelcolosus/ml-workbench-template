@@ -8,7 +8,7 @@
     "s3_bucket": "bucket_name",
     "aws_profile": "default",
     "aws_region": "us-east-1",
-    "python_version": "3.12",
+    "python_version": "3.13",
     "_copy_without_render": [
         "templates*"
     ]

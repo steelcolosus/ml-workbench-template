@@ -5,7 +5,7 @@
 #   builder: runtime + uv, to install the locked dependencies into /app/.venv
 
 ARG PYTHON_VERSION={{cookiecutter.python_version}}
-ARG UV_VERSION=0.6.6
+ARG UV_VERSION=0.13.1
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 

@@ -21,8 +21,10 @@ help: ##@Main Show every target, grouped
 
 setup:${MLFLOW_ARTIFACT_STORE} ${POSTGRES_VOLUME} venv  ##@Main Create .venv and the MLflow stores
 
-# Create .venv with the project (the packages in src/), every extra and every group
+# Create .venv with the project (the packages in src/), every extra and every group.
+# `uv python install` gets the Python in .python-version if it's missing.
 venv: ##@Main Create .venv and install the locked dependencies (uv sync)
+	$(UV) python install
 	$(UV_SYNC)
 
 run: docker-compose ##@Main Start PostgreSQL and the MLflow server in Docker

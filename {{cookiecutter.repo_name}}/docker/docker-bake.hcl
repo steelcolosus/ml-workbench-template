@@ -12,7 +12,7 @@ variable "PYTHON_VERSION" {
 }
 
 variable "UV_VERSION" {
-  default = "0.6.6"
+  default = "0.13.1"
 }
 
 variable "IMAGE_NAME" {
