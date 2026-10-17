@@ -1,140 +1,57 @@
-# Check if ENV is set
-ifndef ENV
-$(error ENV is not set. Please set ENV to dev, beta, or prod.)
-endif
+# Main commands. Everything else lives in makefiles/, one file per area, and
+# runs the same way (`make <target>`); `make help` lists every target.
+#
+#   makefiles/common.mk   environment (.env, ENV=dev|beta|prod) and shared variables
+#   makefiles/dev.mk      dependencies, notebooks, git hooks
+#   makefiles/mlflow.mk   the MLflow tracking server
+#   makefiles/infra.mk    docker-compose services, AWS login
+#   makefiles/docker.mk   the project's images
+#   makefiles/clean.mk    cleanup
 
-# Based on the env value, set the appropriate .env file
-ifeq ($(ENV),prod)
-ENV_FILE := .env.prod
-else ifeq ($(ENV),beta)
-ENV_FILE := .env.beta
-else ifeq ($(ENV),dev)
-ENV_FILE := .env
-else
-$(error Unknown env value $(ENV). Please set env to dev, beta, or prod.)
-endif
+include makefiles/common.mk
 
-# Output the env value and which environment file is being used
-$(info Using environment: $(ENV))
-$(info Loading configuration from file: $(ENV_FILE))
+.DEFAULT_GOAL := default
 
-# Include the environment file if it exists
-include $(ENV_FILE)
+.PHONY: default help setup venv run pipeline step serve test lint format
 
-export
+default: setup run ##@Main Set up the project and start PostgreSQL and the MLflow server
 
+help: ##@Main Show every target, grouped
+	@awk 'BEGIN {FS = ":.*##@"} /^[a-zA-Z_-]+:.*##@/ {split($$2, parts, " "); group = parts[1]; sub(/^[^ ]+ */, "", $$2); if (group != last) {printf "\n%s\n", group; last = group}; printf "  %-18s %s\n", $$1, $$2}' $(filter-out $(ENV_FILE),$(MAKEFILE_LIST))
 
-PYTHONPATH= .
-SHELL := /bin/bash
-USER_NAME := $(shell whoami)
-PYTHON_VERSION=$(shell {{cookiecutter.python_interpreter}} -c 'import sys; print("{0}.{1}".format(sys.version_info[0], sys.version_info[1]))')
-PYTHON_PATH=$(shell which {{cookiecutter.python_interpreter}})
+setup:${MLFLOW_ARTIFACT_STORE} ${POSTGRES_VOLUME} venv  ##@Main Create .venv and the MLflow stores
 
-CURRENT_DIRECTORY:=$(shell pwd)
-INSTALL_DIRECTORY:=$(CURRENT_DIRECTORY)/.venv
-EXEC_PATH:=$(INSTALL_DIRECTORY)/bin/
+# Create .venv with the project (the packages in src/), every extra and every group.
+# `uv python install` gets the Python in .python-version if it's missing.
+venv: ##@Main Create .venv and install the locked dependencies (uv sync)
+	$(UV) python install
+	$(UV_SYNC)
 
-variables := PYTHONPATH USER_NAME PYTHON_VERSION PYTHON_PATH CURRENT_DIRECTORY INSTALL_DIRECTORY EXEC_PATH
+run: docker-compose ##@Main Start PostgreSQL and the MLflow server in Docker
+	@echo "MLflow UI: $(MLFLOW_TRACKING_URI)"
 
-#STEP_REPO:=git@github.com:steelcolosus/mlflow-step-template.git
-STEP_PATH:=$(CURRENT_DIRECTORY)/libs/templates/mlflow_step_template
+# make pipeline STEPS=basic_cleaning ARGS="store.sync_s3=true"
+pipeline: ##@Main Run the pipeline (STEPS=a,b for a subset, ARGS for config overrides)
+	$(PYTHON) main.py "main.steps='$(or $(STEPS),all)'" $(ARGS)
 
-# Colors
-RESET := $(shell tput sgr0)
-RED := $(shell tput setaf 1)
-GREEN := $(shell tput setaf 2)
-WHITE  := $(shell tput -Txterm setaf 7)
-YELLOW := $(shell tput -Txterm setaf 3)
+# make step ARGS="--no-input step_name=basic_cleaning" skips the prompts
+step: ##@Main Create a new MLflow step in src/steps/ from the step template
+	$(CC) ${STEP_PATH} -o ./src/steps python_version=$(PYTHON_VERSION) $(ARGS)
 
-# Commands
-PIP := $(EXEC_PATH)pip
-PYTHON := $(EXEC_PATH)python3
-MLFLOW := $(EXEC_PATH)mlflow
-PYTEST := $(PYTHON) -m pytest
-VENV:= python3 -m venv
-CC := $(EXEC_PATH)cookiecutter
+serve: ##@Main Run the API locally with auto-reload (docs at /docs)
+	$(UV_RUN) uvicorn serving.app:app --reload --port $(or $(SERVING_PORT),8000)
 
-PRUNE_OPTS = -f
-DOWN_OPTS = --remove-orphans
+test: ##@Main Run the tests
+	$(PYTEST) tests
 
+lint: ##@Main Lint the code (ruff), the package layers and the Dockerfiles
+	$(RUFF) check .
+	$(RUFF) format --check .
+	$(UV_RUN) lint-imports
+	@$(MAKE) --no-print-directory lint-docker
 
-default: clean setup docker-compose run##@Development Run all
+format: ##@Main Fix lint issues and format the code with ruff
+	$(RUFF) check --fix .
+	$(RUFF) format .
 
-
-
-setup:${MLFLOW_ARTIFACT_STORE} ${POSTGRES_VOLUME} venv  ##@Development setup environment and stores
-
-# run mlflow-server
-run: ##@Development Run mlflow-server
-	$(MAKE) mlflow-server
-# run all
-run-all: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
-	$(MAKE) -j 2 mlflow-server jupyter-notebook
-
-# Create virtual environment
-venv: ##@Development Create virtual environment
-	$(VENV) $(INSTALL_DIRECTORY)
-	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements.txt
-	$(PYTHON) set_versions.py
-# run docker compose
-docker-compose: ##@Development Run docker compose
-	docker compose up -d
-
-# run mlflow server
-mlflow-server: ##@Development Run mlflow server
-	source $(EXEC_PATH)activate && \
-	PYTHONPATH=. $(MLFLOW) server \
-		--backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${MLFLOW_BACKEND_STORE}:${POSTGRES_PORT}/${POSTGRES_DATABASE} \
-		--default-artifact-root ${MLFLOW_ARTIFACT_STORE} \
-		--host ${MLFLOW_TRACKING_SERVER_HOST} \
-		--port ${MLFLOW_TRACKING_SERVER_PORT}
-
-mlflow-kill: ##@Development Kill mlflow server
-	kill -9 $(shell lsof -t -i:${MLFLOW_TRACKING_SERVER_PORT})
-
-#run jupyter notebook
-jupyter-notebook: ##@Development Run jupyter notebook
-	$(EXEC_PATH)jupyter-lab --NotebookApp.iopub_msg_rate_limit=100000000
-
-
-purge: clean-all
-clean: down prune
-clean-all:  down prune clean-stores clean-python mlflow-kill
-clean-stores:
-	sudo rm -rf ./${MLFLOW_ARTIFACT_STORE} ./${POSTGRES_VOLUME}
-clean-python:
-	find . -name '*.pyc' -exec rm -f {} +
-	find . -name '*.pyo' -exec rm -f {} +
-	find . -name '*~' -exec rm -f {} +
-	find . -name '__pycache__' -exec rm -fr {} +
-	find . -name '.ipynb_checkpoints' -exec rm -fr {} +
-	rm -rf build/
-	rm -rf dist/
-	rm -rf .eggs/
-	rm -rf .pytest_cache
-	find . -name '.eggs' -type d -exec rm -rf {} +
-	find . -name '*.egg-info' -exec rm -rf {} +
-	find . -name '*.egg' -exec rm -f {} +
-	rm -fr .tox/
-	rm -f .coverage
-	rm -fr htmlcov/
-
-down: ##@Development Stop and remove containers, networks, images, and volumes
-	docker compose down ${DOWN_OPTS}
-prune:
-	docker system prune ${PRUNE_OPTS}
-
-
-${MLFLOW_ARTIFACT_STORE}:
-	mkdir -p ${MLFLOW_ARTIFACT_STORE}
-
-${POSTGRES_VOLUME}:
-	mkdir -p ${POSTGRES_VOLUME}
-
-
-step:
-	$(CC) ${STEP_PATH} -o ./src
-
-login: ##@Development Login to AWS SSO
-	aws sso login --profile ${AWS_PROFILE}
+include makefiles/dev.mk makefiles/mlflow.mk makefiles/infra.mk makefiles/docker.mk makefiles/clean.mk

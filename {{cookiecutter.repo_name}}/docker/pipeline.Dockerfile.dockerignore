@@ -1,0 +1,15 @@
+# Files the pipeline image gets: everything else stays out (data and models are
+# mounted as volumes, secrets come from the environment)
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!README.md
+!LICENSE
+!config.yaml
+!main.py
+!run.py
+!MLProject
+!python_env.yaml
+!src
+**/__pycache__

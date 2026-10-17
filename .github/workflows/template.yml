@@ -1,0 +1,28 @@
+# Checks the template on every push to main and every pull request:
+# - render: generates projects in every configuration and checks the files
+# - generated-project: generates a project and runs its own make venv, lint
+#   (ruff, import-linter, hadolint), test and step, and builds its images
+name: template
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  render:
+    name: Render the template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: make test
+
+  generated-project:
+    name: Generated project
+    runs-on: ubuntu-latest
+    needs: render
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run pytest -m slow -v

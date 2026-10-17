@@ -8,6 +8,89 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+      - ${POSTGRES_PORT}:5432
     volumes:
       - ${POSTGRES_VOLUME}:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # The MLflow tracking server (docker/mlflow.Dockerfile), with PostgreSQL as
+  # its backend store and data/artifacts as its artifact store. Clients reach it
+  # at http://localhost:${MLFLOW_TRACKING_SERVER_PORT} (MLFLOW_TRACKING_URI in
+  # .env) and the containers below at http://mlflow:5000.
+  mlflow:
+    image: {{cookiecutter.repo_name}}:mlflow
+    pull_policy: never
+    depends_on:
+      ml-postgres:
+        condition: service_healthy
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@ml-postgres:5432/${POSTGRES_DB}
+      - --artifacts-destination
+      - /mlflow/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --allowed-hosts
+      - ${MLFLOW_ALLOWED_HOSTS:-localhost,localhost:*,127.0.0.1,127.0.0.1:*,mlflow,mlflow:*}
+    ports:
+      - ${MLFLOW_TRACKING_SERVER_PORT:-5050}:5000
+    volumes:
+      - ${MLFLOW_ARTIFACT_STORE:-./data/artifacts}:/mlflow/artifacts
+
+  # In-memory S3 for trying store.sync_s3 without AWS (data is lost on restart):
+  #   docker compose --profile s3-local up -d
+  # and set AWS_ENDPOINT_URL in .env (see example.env).
+  s3-local:
+    container_name: ml-s3-local
+    image: motoserver/moto:5.2.4
+    profiles: ["s3-local"]
+    ports:
+      - ${S3_LOCAL_PORT:-9000}:5000
+
+  # The project's images, built with bake (docker/docker-bake.hcl). They aren't
+  # started by `make` / `docker compose up`: `make docker-pipeline` and
+  # `make docker-serve` build them and run them here.
+  pipeline:
+    profiles: ["pipeline"]
+    image: {{cookiecutter.repo_name}}:pipeline
+    pull_policy: never
+    env_file:
+      - path: ${ENV_FILE:-.env}
+        required: false
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    environment:
+      # The mlflow service on the compose network (localhost would be this
+      # container); DOCKER_MLFLOW_TRACKING_URI points it somewhere else
+      MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI:-http://mlflow:5000}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      # AWS profiles and SSO logins (`make login`) for store.sync_s3
+      - ${HOME}/.aws:/root/.aws:ro
+
+  serving:
+    profiles: ["serving"]
+    image: {{cookiecutter.repo_name}}:serving
+    pull_policy: never
+    env_file:
+      - path: ${ENV_FILE:-.env}
+        required: false
+    environment:
+      SERVING_MODEL_NAME: ${SERVING_MODEL_NAME:-}
+    ports:
+      - ${SERVING_PORT:-8000}:8000
+    volumes:
+      - ./models:/app/models
+      - ${HOME}/.aws:/home/app/.aws:ro

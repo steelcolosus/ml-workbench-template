@@ -1,0 +1,16 @@
+# Install with `make hooks`. Runs on every commit; `uv run pre-commit run -a`
+# checks the whole repository.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  # Lints the Dockerfiles in docker/ (runs hadolint's Docker image)
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.14.0
+    hooks:
+      - id: hadolint-docker
+        files: \.Dockerfile$
+        types: [file]

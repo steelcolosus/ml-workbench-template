@@ -1,18 +1,69 @@
 # Cookiecutter template for ML Workbench
 
-Using this template you can quickly generate your basic ML workbench
+Generates an ML project with:
 
-# Usage
+-   an MLflow tracking server on PostgreSQL in Docker Compose (`make run`), or local tracking in SQLite;
+-   a Hydra-configured pipeline whose steps are MLflow projects, each a subclass of `core.step.Step`;
+-   a local-first data store with optional S3 sync (`core.store.Store`);
+-   a FastAPI app that serves the project's models (`src/serving`);
+-   pipeline and serving Docker images, one Dockerfile each, built with `docker buildx bake`, each with only its dependencies;
+-   [uv](https://docs.astral.sh/uv/) for dependencies, ruff, pre-commit, import-linter and pytest.
 
-Run the command:
+## Usage
+
+```shell
+uvx cookiecutter [path or URL of this repo] -o [destination directory]
+```
+
+| Prompt | Used for |
+|---|---|
+| `project_name` | The README title. |
+| `repo_name` | Project folder, package and MLflow project name, experiment prefix (`<repo_name>_<experiment_name>`) and default S3 prefix (`ml/<repo_name>`). Derived from `project_name`. |
+| `author_name` | `pyproject.toml` and the copyright line in `LICENSE`. |
+| `experiment_name` | The MLflow experiment, with `repo_name` as prefix. |
+| `description` | The README and `pyproject.toml`. |
+| `open_source_license` | The `LICENSE` file (with the current year and `author_name`) and `license` in `pyproject.toml`. `No license file` creates neither. |
+| `s3_bucket`, `aws_profile`, `aws_region` | `example.env` (`AWS_BUCKET`, `AWS_PROFILE`, `AWS_REGION`), read by the store when S3 sync is on. |
+| `python_version` | `.python-version`, `requires-python` in `pyproject.toml` and the MLflow `python_env.yaml`. |
+
+Then, inside the generated project:
+
+```shell
+make venv       # create .venv with uv
+make test       # check the setup
+make step       # create a pipeline step in src/steps/ (asks for its name and parameters)
+make pipeline   # run the steps listed in main.py
+make serve      # run the API (SERVING_MODEL_NAME=<model>)
+make help       # every target
+```
+
+## Generated project
 
 ```
-> cookiecutter [path to this repo] -o [destination directory]
+src/
+  core/        Abstractions the rest builds on: Store, Step, CustomModel
+  libs/        Building blocks a step chooses to use: MLflow tracking, StepRunner, EDA
+  utils/       Generic helpers: config files, logging, file operations
+  steps/       Pipeline steps, one MLflow project per folder
+  serving/     Serving code (APIs, batch scoring)
+templates/
+  step/        Cookiecutter template used by `make step`
+tests/
+docs/ARCHITECTURE.md
+makefiles/     Targets by area; the Makefile keeps the main commands
+docker/        One Dockerfile per image (pipeline, serving), a shared base and docker-bake.hcl
+main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compose.yml
 ```
 
-and follow the prompt. The tool will ask for the step name, the script name, the description and so on. It will
-also ask for the parameters of the script. This should be a comma-separated list of parameter names _without spaces_.
-After you are done, you will find a new directory with the provided step name containing a stub of a new MLflow step.
+The generated project's `docs/ARCHITECTURE.md` explains the architecture: how a pipeline run flows through the code, every package and helper, the libraries, and recipes for common tasks. Its README covers the commands. `templates/step/README.md` covers the step template: its prompts, the generated `Step` subclass and the hooks that validate the input and print what to add to `main.py` and `config.yaml`.
 
-You will need to edit both the script and the MLproject files to fill in the type and the help for the parameters.
-Of course, if your script needs packages, these should be added to the conda.yml file.
+Projects generated before a template change keep their own copy of `templates/step`; copy the folder over to update it.
+
+## Working on the template
+
+```shell
+make test       # render the template in every configuration and check the files (seconds)
+make test-all   # also generate a project and run its make venv, lint, test and step, and build its images (minutes; needs Docker)
+```
+
+The tests live in `tests/`: `test_render.py` checks the rendered files (no leftover template markers, every Python, YAML and TOML file parses, the license options, the step template and its hooks), and `test_generated_project.py` runs a generated project's own commands. The GitHub Actions workflow in `.github/workflows/template.yml` runs both on every pull request and push to `main`.

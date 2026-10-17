@@ -1,0 +1,32 @@
+{%- set params = cookiecutter.parameters.replace(" ", "").split(",") | reject("equalto", "") | reject("equalto", "config_path") | list -%}
+#!/usr/bin/env python
+"""
+{{ cookiecutter.long_description }}
+"""
+
+from core.step import Step
+
+
+class {{ cookiecutter.__class_name }}(Step):
+    """{{ cookiecutter.short_description }}"""
+{%- if params %}
+
+    @classmethod
+    def add_arguments(cls, parser):
+        # The same parameters as in MLproject: set their type and help
+{%- for name in params %}
+        parser.add_argument("--{{ name }}", type=str, required=True, help="")
+{%- endfor %}
+{%- endif %}
+
+    def run(self):
+        # self.args: the parameters above. self.config: this step's config
+        # section. self.store and self.logger are ready. For example:
+        #
+        # df = self.store.load_data("raw", self.args.input_artifact)
+        # self.store.save_data("processed", self.args.output_artifact, df)
+        raise NotImplementedError
+
+
+if __name__ == "__main__":
+    {{ cookiecutter.__class_name }}.main()

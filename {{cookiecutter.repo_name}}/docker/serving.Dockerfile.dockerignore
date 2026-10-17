@@ -1,0 +1,15 @@
+# Files the serving image gets: the packages the API imports (all of them are
+# installed with the project) and config.yaml for the store. Steps, tests,
+# pipeline entry points, data and models stay out.
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!README.md
+!LICENSE
+!config.yaml
+!src/core
+!src/libs
+!src/utils
+!src/serving
+**/__pycache__

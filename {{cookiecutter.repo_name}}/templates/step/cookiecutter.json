@@ -1,0 +1,9 @@
+{
+	"step_name": "step_name",
+	"script_name": "run.py",
+	"short_description": "My step",
+	"long_description": "An example of a step using MLflow",
+	"parameters": "input_artifact,output_artifact",
+	"python_version": "3.13",
+	"__class_name": "{{ cookiecutter.step_name.title().replace('_', '') }}"
+}

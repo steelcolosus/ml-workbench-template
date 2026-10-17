@@ -1,20 +1,73 @@
+# Hydra only loads this file: logging is configured by utils.log (one format for
+# main.py and the steps), and runs don't create outputs/<date>/ folders
+defaults:
+    - override hydra/job_logging: none
+    - override hydra/hydra_logging: none
+    - _self_
+
+hydra:
+    output_subdir: null
+    run:
+        dir: .
+
+# Project root. `make` exports PROJECT_ROOT; without it, the relative "." is
+# resolved from this file's folder, wherever you run from.
+root: ${oc.env:PROJECT_ROOT,.}
+
 main:
-    # components_repository: "https://github.com/steelcolosus/ml-devops-build-ml-pipeline-for-short-term-rental-prices#components"
-    # All the intermediate files will be copied to this directory at the end of the run.
-    # Set this to null if you are running in prod
     project_name: {{cookiecutter.repo_name}}
     experiment_name: {{cookiecutter.experiment_name}}
+    # Comma-separated list of steps from main.py's _steps, or "all"
     steps: all
+
+launcher:
+    # true: track to a local sqlite db (mlflow.db) and run steps in the current env
+    local: false
+    # Env manager for the steps when local is false: local (this .venv), uv (an
+    # environment per step, created with uv) or virtualenv (same, needs pyenv)
+    env_manager: local
+    run_name: null
+
+store:
+    # Base folder for relative location paths
+    local_root: ${root}/data
+    # Download missing files on load and upload after save (see README > Store)
+    sync_s3: false
+    # Default bucket/prefix. A location uploads to <bucket>/<prefix>/<location name>
+    # unless it sets its own bucket or prefix.
+    bucket: ${oc.env:AWS_BUCKET,null}
+    prefix: ml/{{cookiecutter.repo_name}}
+    aws_profile: ${oc.env:AWS_PROFILE,null}
+    region: ${oc.env:AWS_REGION,null}
+    # S3-compatible endpoint, e.g. the local one from `docker compose --profile s3-local`
+    endpoint_url: ${oc.env:AWS_ENDPOINT_URL,null}
+    locations:
+        raw:
+            path: raw
+        processed:
+            path: processed
+        models:
+            path: ${root}/models
+        # Example of a location with its own bucket and prefix:
+        # analytics:
+        #     path: analytics
+        #     bucket: analytics-bucket
+        #     prefix: team-x/{{cookiecutter.repo_name}}
+
+# Steps: one section per step in main.py's _steps. The whole section, nested
+# values included, is the step's self.config; main.py also passes the values it
+# picks (the artifacts) as MLflow parameters. ${...} chains a step's input to the
+# previous step's output.
+get_data:
+    output_artifact: raw_data.csv
+
+basic_cleaning:
+    input_artifact: ${get_data.output_artifact}
+    output_artifact: clean_data.parquet
+
 data_check:
-    kl_threshold: 0.2
-modeling:
-    # Fraction of data to use for test (the remaining will be used for train and validation)
-    test_size: 0.2
-    # Fraction of remaining data to use for validation
-    val_size: 0.2
-    # Fix this for reproducibility, change to have new splits
-    random_seed: 42
-    # Column to use for stratification (use "none" for no stratification)
-    stratify_by: "neighbourhood_group"
-    # Maximum number of features to consider for the TFIDF applied to the title of the
-    # insertion (the column called "name")
+    input_artifact: ${basic_cleaning.output_artifact}
+
+preprocessing:
+    input_artifact: ${basic_cleaning.output_artifact}
+    output_artifact: features.parquet

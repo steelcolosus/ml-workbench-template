@@ -1,0 +1,5 @@
+# The tracking server only needs the locked dependencies, not the project's code
+*
+!pyproject.toml
+!uv.lock
+!.python-version

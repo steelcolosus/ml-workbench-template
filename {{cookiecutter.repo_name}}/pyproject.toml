@@ -1,0 +1,119 @@
+[project]
+name = "{{cookiecutter.repo_name}}"
+version = "0.1.0"
+description = "{{cookiecutter.description}}"
+readme = "README.md"
+authors = [{ name = "{{cookiecutter.author_name}}" }]
+{%- if cookiecutter.open_source_license != "No license file" %}
+license = "{{ cookiecutter.open_source_license }}"
+license-files = ["LICENSE"]
+{%- endif %}
+requires-python = ">={{cookiecutter.python_version}}"
+# Dependencies are split by where they are installed (see README > Dependencies):
+# - base: what src/core, src/libs and src/utils import; installed everywhere
+# - extras (optional-dependencies): runtime sets an image or a step environment
+#   asks for, e.g. `uv sync --extra serving` or `pip install -e ".[pipeline]"`
+# - groups (dependency-groups): only for working on the project (your machine
+#   and CI); never in images
+# Your .venv gets everything (`make venv` runs `uv sync --all-extras`).
+dependencies = [
+    "boto3",
+    # The MLflow client (runs, models, projects) without the server's
+    # dependencies; the full package is in the tracking-server extra
+    "mlflow-skinny>=3",
+    "omegaconf",
+    "pandas",
+    "pyarrow",
+    "python-dotenv",
+    "pyyaml",
+    "scikit-learn",
+]
+
+[project.optional-dependencies]
+# Running the pipeline: main.py, run.py and the steps
+pipeline = [
+    "dask[dataframe]",
+    "hydra-core",
+    "hydra-joblib-launcher",
+    "statsmodels",
+]
+# The API in src/serving
+serving = [
+    "fastapi",
+    "uvicorn",
+]
+# The MLflow tracking server (the mlflow image, `make mlflow-server`) and local
+# SQLite tracking (launcher.local=true), which need the full mlflow package
+tracking-server = [
+    "mlflow>=3",
+    "psycopg[binary]",
+]
+
+[dependency-groups]
+test = [
+    "httpx",
+    "moto[s3]",
+    "pytest",
+]
+dev = [
+    "cookiecutter",
+    "import-linter",
+    "pre-commit",
+    "ruff",
+]
+notebook = [
+    "ipywidgets",
+    "jupyterlab",
+    "jupyterlab-git",
+]
+eda = [
+    "matplotlib",
+    "seaborn",
+    # ydata-profiling imports pkg_resources without declaring it; setuptools 81
+    # removed it. Drop this pin once ydata-profiling stops using it.
+    "setuptools<81",
+    "ydata-profiling",
+]
+[tool.uv]
+# `uv sync` and `uv run` install every group; `uv sync --no-group eda` skips one
+default-groups = ["test", "dev", "notebook", "eda"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Ship the shared packages in src/ so they can be imported from anywhere (main.py,
+# notebooks, tests, the MLflow steps and serving). src/steps/ holds the steps,
+# which MLflow runs as scripts, so it is not a package.
+[tool.hatch.build.targets.wheel]
+packages = ["src/core", "src/libs", "src/utils", "src/serving"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Dependency rules between the packages in src/ (checked by `make lint`):
+# each layer may import the layers below it, never the ones above.
+[tool.importlinter]
+root_packages = ["serving", "libs", "core", "utils"]
+
+[[tool.importlinter.contracts]]
+name = "serving -> libs -> core -> utils"
+type = "layers"
+layers = ["serving", "libs", "core", "utils"]
+
+[tool.ruff]
+line-length = 88
+src = ["src", "."]
+extend-exclude = [".mlflow-envs", "templates", "notebooks", "*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["core", "libs", "utils", "serving"]
