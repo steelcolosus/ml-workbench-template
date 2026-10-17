@@ -18,7 +18,7 @@ This is a Makefile-based project designed to set up a development environment fo
 2. Install uv (`curl -LsSf https://astral.sh/uv/install.sh | sh`) and make sure Docker and Docker Compose are installed.
 3. Run `make venv` to create `.venv` with the project and every dependency group. The first run creates `uv.lock`: commit it.
 4. Run `make test` to check the setup.
-5. Run `make` to start PostgreSQL and the MLflow server. The first run creates `.env` from `example.env`.
+5. Run `make` to start PostgreSQL and the MLflow server in Docker (the UI is at http://localhost:5050). The first run creates `.env` from `example.env`.
 
 There is no need to activate `.venv` or set `PYTHONPATH`: the targets run through `uv run`, and the packages in `src/` are installed, so `from core.store import Store` works from the project root, a notebook or a step. To work in a shell, run `source .venv/bin/activate` or prefix commands with `uv run`.
 
@@ -48,11 +48,11 @@ The `Makefile` holds the main commands; the rest live in `makefiles/`, one file 
 -   `outdated`: List the direct dependencies that have a newer version.
 -   `upgrade`: Upgrade every dependency in `uv.lock` to its latest allowed version and sync `.venv`.
 -   `docker-compose`: Start PostgreSQL with Docker Compose and wait until it is healthy.
--   `mlflow-server`: Run the MLflow server with a PostgreSQL backend and artifact store.
+-   `mlflow-server`: Run the MLflow server on your machine instead of Docker (needs PostgreSQL running).
 -   `jupyter-notebook`: Run Jupyter Lab in the virtual environment.
 -   `setup`: Set up the environment and storage for MLflow and PostgreSQL.
--   `run`: Run the MLflow server.
--   `run-all`: Run the MLflow server and Jupyter Lab in parallel.
+-   `run`: Start PostgreSQL and the MLflow server in Docker.
+-   `run-all`: Start the MLflow server and Jupyter Lab.
 -   `pipeline`: Run the pipeline steps (`STEPS=a,b` for a subset, `ARGS="key=value"` for config overrides).
 -   `step`: Create a new MLflow step in `src/steps/` from the step template.
 -   `serve`: Run the API in `src/serving` with auto-reload.
@@ -70,7 +70,7 @@ The `Makefile` holds the main commands; the rest live in `makefiles/`, one file 
 
 ## Usage
 
-Run the default target to set up the environment and run the MLflow server:
+Run the default target to set up the environment and start PostgreSQL and the MLflow server:
 
 ```shell
 make
@@ -96,14 +96,14 @@ Dependencies live in `pyproject.toml`, split by where they are installed, and th
 
 | Set | Kind | What | Installed in | Add with |
 |---|---|---|---|---|
-| base | `[project] dependencies` | What `src/core`, `src/libs` and `src/utils` import | everywhere | `uv add scipy` |
+| base | `[project] dependencies` | What `src/core`, `src/libs` and `src/utils` import, including `mlflow-skinny` (the MLflow client without the server) | everywhere | `uv add scipy` |
 | `pipeline` | extra | main.py, run.py and the steps (Hydra, dask, ...) | pipeline image, step environments | `uv add --optional pipeline lightgbm` |
 | `serving` | extra | The API in `src/serving` (FastAPI, uvicorn) | serving image | `uv add --optional serving orjson` |
+| `tracking-server` | extra | The full `mlflow` package and psycopg, for the MLflow server and local SQLite tracking (`launcher.local=true`) | mlflow image | |
 | `test` | group | pytest, moto, httpx | your machine, CI | `uv add --group test pytest-cov` |
 | `dev` | group | ruff, pre-commit, import-linter, cookiecutter | your machine | `uv add --group dev mypy` |
 | `notebook` | group | Jupyter Lab and widgets | your machine | `uv add --group notebook plotly` |
 | `eda` | group | ydata-profiling, seaborn, matplotlib | your machine | `uv add --group eda sweetviz` |
-| `tracking-server` | group | psycopg2 for `make mlflow-server` | your machine | |
 
 Extras are part of the package: an image or a step environment asks for them (`uv sync --extra serving`, `pip install -e ".[pipeline]"`). Groups are only for working on the project and never reach an image.
 
@@ -365,14 +365,17 @@ docker/
   pipeline.Dockerfile.dockerignore   the files the pipeline image gets
   serving.Dockerfile                 base + serving extra; runs the API
   serving.Dockerfile.dockerignore    the files the serving image gets
+  mlflow.Dockerfile                  the MLflow tracking server (tracking-server extra)
+  mlflow.Dockerfile.dockerignore     only pyproject.toml and uv.lock
 ```
 
 | Image | Installs | Runs | Make |
 |---|---|---|---|
 | `pipeline` | base + `pipeline` extra | `python main.py`; arguments are Hydra overrides | `make docker-pipeline STEPS=... ARGS="..."` |
 | `serving` | base + `serving` extra | the API on port 8000, as a non-root user, with a health check on `/health` | `make docker-serve SERVING_MODEL_NAME=price_model` |
+| `mlflow` | base + `tracking-server` extra | the MLflow tracking server, with PostgreSQL as backend store and `data/artifacts` as artifact store | `make run` |
 
-`make image TARGET=serving` builds one image (`{{cookiecutter.repo_name}}:serving`) and `make images` builds both. The `docker-*` targets build the image and run it through its service in `docker-compose.yml` (which `make` / `docker compose up` don't start).
+`make image TARGET=serving` builds one image (`{{cookiecutter.repo_name}}:serving`) and `make images` builds all of them. `make run` starts PostgreSQL and the `mlflow` image; the `docker-*` targets build the pipeline or serving image and run it through its service in `docker-compose.yml`, which `make run` / `docker compose up` don't start. The pipeline and serving images only have `mlflow-skinny`: the server's dependencies (SQLAlchemy, Alembic, Flask...) are only in the `mlflow` image.
 
 How it works:
 
@@ -386,7 +389,8 @@ How it works:
 Running the pipeline in Docker:
 
 -   Steps run in the image's environment (`launcher.env_manager=local`).
--   Inside a container `localhost` is the container, so the service sets `MLFLOW_TRACKING_URI=http://host.docker.internal:5000` to reach the MLflow server on your machine (`make run`); change it with `DOCKER_MLFLOW_TRACKING_URI`. The server only accepts that host name because `MLFLOW_ALLOWED_HOSTS` in `.env` includes it.
+-   Inside a container `localhost` is the container, so the service tracks to the `mlflow` service on the compose network (`http://mlflow:5000`), which it starts first if needed. Point it elsewhere with `DOCKER_MLFLOW_TRACKING_URI`, e.g. `http://host.docker.internal:5050` for `make mlflow-server`.
+-   The images track to a server: local SQLite tracking (`launcher.local=true`) needs the full `mlflow` package, which only your `.venv` and the `mlflow` image have.
 -   `~/.aws` is mounted read-only for `store.sync_s3`, so profiles and `make login` (SSO) work in the containers.
 
 ## Environment Variables
@@ -405,7 +409,7 @@ To configure the project, modify the values in the .env file according to your r
 -   `MLFLOW_ARTIFACT_STORE`: Directory for storing MLflow artifacts.
 -   `MLFLOW_TRACKING_SERVER_HOST`: Host for the MLflow tracking server.
 -   `MLFLOW_TRACKING_SERVER_PORT`: Port for the MLflow tracking server.
--   `MLFLOW_ALLOWED_HOSTS`: Host headers the MLflow server accepts (localhost and `host.docker.internal` for the pipeline image).
+-   `MLFLOW_ALLOWED_HOSTS`: Host headers the MLflow server accepts (localhost, `mlflow` for containers on the compose network, `host.docker.internal` for containers reaching `make mlflow-server`).
 -   `POSTGRES_VOLUME`: Directory for storing PostgreSQL data.
 -   `AWS_PROFILE`, `AWS_BUCKET`, `AWS_REGION`: AWS settings used by the store.
 -   `AWS_ENDPOINT_URL`: Optional S3-compatible endpoint (e.g. the local S3 server).

@@ -22,7 +22,7 @@ How this project is organized, how a pipeline run flows through the code, and wh
 -   **Data and artifacts** are read and written through the **store** (`core.store.Store`), by location and name (`store.load_data("raw", "listings.csv")`). Files are always local; with `store.sync_s3` on, the store also downloads missing files from S3 and uploads what it saves.
 -   **Models** subclass `core.model.CustomModel`, are saved through the store (`models/` by default) and logged to MLflow.
 -   **Serving** (`src/serving`) is a FastAPI app that loads a saved model through the store and predicts with it.
--   **Experiment tracking** is MLflow: a tracking server backed by PostgreSQL (`make run`), or a local SQLite file (`launcher.local=true`).
+-   **Experiment tracking** is MLflow: a tracking server in Docker backed by PostgreSQL (`make run`, UI at http://localhost:5050), or a local SQLite file (`launcher.local=true`).
 -   **Environments** come from `uv.lock`: your `.venv` has everything, and the Docker images and step environments only get the dependency set they need.
 
 ## Project layout and layers
@@ -268,7 +268,7 @@ store.save_artifact("analytics", "eda/report.html",
 | [uv](https://docs.astral.sh/uv/) | Environments, locking (`uv.lock`) and running commands | Makefile, the Dockerfiles, step environments |
 | [Hydra](https://hydra.cc/) / [OmegaConf](https://omegaconf.readthedocs.io/) | Loading `config.yaml`, command-line overrides, `${...}` interpolation | `main.py`, `run.py`; OmegaConf everywhere config is read |
 | [MLflow](https://mlflow.org/) | Tracking runs, running steps as projects, saving and loading models, the model registry | `libs.tracking`, `libs.pipeline`, `core.step`, `core.model` |
-| PostgreSQL | MLflow's backend store for the tracking server | `docker-compose.yml`, `make mlflow-server` |
+| PostgreSQL (psycopg) | MLflow's backend store for the tracking server | `docker-compose.yml` (`make run`), `make mlflow-server` |
 | pandas, pyarrow | DataFrames and Parquet | the store's pandas engine, `libs.data` |
 | [dask](https://docs.dask.org/) | Larger-than-memory DataFrames | the store's dask engine (`pipeline` extra) |
 | boto3 | S3 | `core.store.remote.S3Storage` |
@@ -286,10 +286,11 @@ store.save_artifact("analytics", "eda/report.html",
 
 | Where | Python environment | Tracking | Started by |
 |---|---|---|---|
-| Your machine | `.venv` (every extra and group) | server (`MLFLOW_TRACKING_URI`) or SQLite (`launcher.local=true`) | `make pipeline`, `make serve`, notebooks |
+| Your machine | `.venv` (every extra and group) | the server (`MLFLOW_TRACKING_URI`, http://localhost:5050) or SQLite (`launcher.local=true`) | `make pipeline`, `make serve`, notebooks |
 | Step, `env_manager=local` | the same `.venv` | the pipeline's | `main.py` |
 | Step, `env_manager=uv` / `virtualenv` | one environment per step from its `requirements.txt` (the project with the `pipeline` extra, versions from `uv.lock`) | the pipeline's | `main.py` |
-| Pipeline image | base + `pipeline` | `http://host.docker.internal:5000` by default | `make docker-pipeline` |
+| Pipeline image | base + `pipeline` (`mlflow-skinny`) | the `mlflow` service, `http://mlflow:5000` | `make docker-pipeline` |
+| MLflow server image | base + `tracking-server` (full `mlflow`, psycopg) | it is the server | `make run` |
 | Serving image | base + `serving` | none needed | `make docker-serve` |
 
 ## Recipes
@@ -316,7 +317,7 @@ store.save_artifact("analytics", "eda/report.html",
 
 **Add a make target**: everyday commands go in the `Makefile`; anything else in the matching `makefiles/<area>.mk`, or a new file added to the `include` line at the end of the `Makefile`. Variables from `makefiles/common.mk` (`$(UV_RUN)`, `$(PYTHON)`, the `.env` values) are available everywhere. Add `##@<Group> description` after the target to list it in `make help`, and the target to that file's `.PHONY`.
 
-**Run everything in Docker**: `make run` (MLflow server on your machine), then `make docker-pipeline` or `make docker-serve SERVING_MODEL_NAME=...`. See the README's Docker section to add an image.
+**Run everything in Docker**: `make run` (PostgreSQL and the MLflow server), then `make docker-pipeline` or `make docker-serve SERVING_MODEL_NAME=...`. See the README's Docker section to add an image.
 
 ## Testing
 
@@ -333,7 +334,8 @@ store.save_artifact("analytics", "eda/report.html",
 -   **Data stays out of git and images:** `data/` and `models/` are gitignored and excluded from Docker builds; containers mount them. S3 (with sync on) is the shared copy.
 -   **A local file wins:** with sync on, the store downloads only what's missing locally. Delete the local copy to get the S3 version again.
 -   **`store.path()` doesn't sync:** use `save_artifact` when the result must reach S3.
--   **macOS port 5000:** the AirPlay Receiver listens on port 5000. Turn it off (System Settings > General > AirDrop & Handoff) or set `MLFLOW_TRACKING_SERVER_PORT` and `MLFLOW_TRACKING_URI` to another port in `.env`.
--   **MLflow allowed hosts:** the MLflow server rejects requests addressed to host names it doesn't know. `MLFLOW_ALLOWED_HOSTS` in `.env` lists localhost and `host.docker.internal`; add the host name clients use if the server runs elsewhere.
+-   **MLflow's port:** the server is published on port 5050 (`MLFLOW_TRACKING_SERVER_PORT`), because macOS's AirPlay Receiver uses 5000. Inside the compose network it's still `mlflow:5000`.
+-   **MLflow allowed hosts:** the MLflow server rejects requests addressed to host names it doesn't know. `MLFLOW_ALLOWED_HOSTS` in `.env` lists localhost, `mlflow` (containers on the compose network) and `host.docker.internal`; add the host name clients use if the server runs elsewhere.
+-   **Local SQLite tracking needs full MLflow:** the base dependencies only have `mlflow-skinny`. `launcher.local=true` works in `.venv` (which has the `tracking-server` extra), not in the pipeline image, which tracks to a server.
 -   **Empty `AWS_PROFILE`:** boto3 treats `AWS_PROFILE=` as a profile named "" and fails. Comment the line out instead of leaving it empty.
 -   **Projects keep their own step template:** `templates/step` is copied when the project is generated; update it there.

@@ -2,7 +2,7 @@
 
 Generates an ML project with:
 
--   an MLflow tracking server on PostgreSQL (Docker Compose), or local tracking in SQLite;
+-   an MLflow tracking server on PostgreSQL in Docker Compose (`make run`), or local tracking in SQLite;
 -   a Hydra-configured pipeline whose steps are MLflow projects, each a subclass of `core.step.Step`;
 -   a local-first data store with optional S3 sync (`core.store.Store`);
 -   a FastAPI app that serves the project's models (`src/serving`);

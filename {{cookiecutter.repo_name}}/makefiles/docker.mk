@@ -10,7 +10,7 @@ uv.lock: pyproject.toml
 	$(UV) lock
 
 # make image TARGET=serving
-image: uv.lock ##@Docker Build one image: TARGET=pipeline (default) or serving
+image: uv.lock ##@Docker Build one image: TARGET=pipeline (default), serving or mlflow
 	$(BAKE) $(or $(TARGET),pipeline)
 
 images: uv.lock ##@Docker Build every image (in parallel)
@@ -18,7 +18,7 @@ images: uv.lock ##@Docker Build every image (in parallel)
 
 # make docker-pipeline STEPS=basic_cleaning ARGS="store.sync_s3=true"
 docker-pipeline: uv.lock ##@Docker Build and run the pipeline image (STEPS and ARGS as in `make pipeline`)
-	$(BAKE) pipeline
+	$(BAKE) pipeline mlflow
 	docker compose --profile pipeline run --rm pipeline \
 		"main.steps='$(or $(STEPS),all)'" $(ARGS)
 

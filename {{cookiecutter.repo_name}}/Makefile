@@ -14,7 +14,7 @@ include makefiles/common.mk
 
 .PHONY: default help setup venv run pipeline step serve test lint format
 
-default: setup docker-compose run ##@Main Set up the project and run the MLflow server
+default: setup run ##@Main Set up the project and start PostgreSQL and the MLflow server
 
 help: ##@Main Show every target, grouped
 	@awk 'BEGIN {FS = ":.*##@"} /^[a-zA-Z_-]+:.*##@/ {split($$2, parts, " "); group = parts[1]; sub(/^[^ ]+ */, "", $$2); if (group != last) {printf "\n%s\n", group; last = group}; printf "  %-18s %s\n", $$1, $$2}' $(filter-out $(ENV_FILE),$(MAKEFILE_LIST))
@@ -25,8 +25,8 @@ setup:${MLFLOW_ARTIFACT_STORE} ${POSTGRES_VOLUME} venv  ##@Main Create .venv and
 venv: ##@Main Create .venv and install the locked dependencies (uv sync)
 	$(UV_SYNC)
 
-run: ##@Main Run the MLflow server
-	$(MAKE) mlflow-server
+run: docker-compose ##@Main Start PostgreSQL and the MLflow server in Docker
+	@echo "MLflow UI: $(MLFLOW_TRACKING_URI)"
 
 # make pipeline STEPS=basic_cleaning ARGS="store.sync_s3=true"
 pipeline: ##@Main Run the pipeline (STEPS=a,b for a subset, ARGS for config overrides)

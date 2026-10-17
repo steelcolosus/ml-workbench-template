@@ -17,6 +17,34 @@ services:
       timeout: 5s
       retries: 10
 
+  # The MLflow tracking server (docker/mlflow.Dockerfile), with PostgreSQL as
+  # its backend store and data/artifacts as its artifact store. Clients reach it
+  # at http://localhost:${MLFLOW_TRACKING_SERVER_PORT} (MLFLOW_TRACKING_URI in
+  # .env) and the containers below at http://mlflow:5000.
+  mlflow:
+    image: {{cookiecutter.repo_name}}:mlflow
+    pull_policy: never
+    depends_on:
+      ml-postgres:
+        condition: service_healthy
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@ml-postgres:5432/${POSTGRES_DB}
+      - --artifacts-destination
+      - /mlflow/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --allowed-hosts
+      - ${MLFLOW_ALLOWED_HOSTS:-localhost,localhost:*,127.0.0.1,127.0.0.1:*,mlflow,mlflow:*}
+    ports:
+      - ${MLFLOW_TRACKING_SERVER_PORT:-5050}:5000
+    volumes:
+      - ${MLFLOW_ARTIFACT_STORE:-./data/artifacts}:/mlflow/artifacts
+
   # In-memory S3 for trying store.sync_s3 without AWS (data is lost on restart):
   #   docker compose --profile s3-local up -d
   # and set AWS_ENDPOINT_URL in .env (see example.env).
@@ -37,10 +65,13 @@ services:
     env_file:
       - path: ${ENV_FILE:-.env}
         required: false
+    depends_on:
+      mlflow:
+        condition: service_healthy
     environment:
-      # Inside a container localhost is the container: reach the MLflow server
-      # running on your machine (`make run`)
-      MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI:-http://host.docker.internal:5000}
+      # The mlflow service on the compose network (localhost would be this
+      # container); DOCKER_MLFLOW_TRACKING_URI points it somewhere else
+      MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI:-http://mlflow:5000}
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes:

@@ -21,7 +21,7 @@ variable "IMAGE_NAME" {
 
 # Built by `docker buildx bake` without a target
 group "default" {
-  targets = ["pipeline", "serving"]
+  targets = ["pipeline", "serving", "mlflow"]
 }
 
 # Settings shared by every target
@@ -69,4 +69,11 @@ target "serving" {
   inherits   = ["_image"]
   dockerfile = "docker/serving.Dockerfile"
   tags       = ["${IMAGE_NAME}:serving"]
+}
+
+# The MLflow tracking server run by docker-compose.yml
+target "mlflow" {
+  inherits   = ["_image"]
+  dockerfile = "docker/mlflow.Dockerfile"
+  tags       = ["${IMAGE_NAME}:mlflow"]
 }

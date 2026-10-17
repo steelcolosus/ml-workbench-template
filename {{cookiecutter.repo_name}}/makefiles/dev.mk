@@ -13,9 +13,8 @@ upgrade: ##@Development Upgrade every dependency to its latest version in uv.loc
 jupyter-notebook: ##@Development Run jupyter notebook
 	$(UV_RUN) jupyter-lab --ServerApp.iopub_msg_rate_limit=100000000
 
-# run all
-run-all: ##@Development Run mlflow-server and jupyter-notebook targets in parallel
-	$(MAKE) -j 2 mlflow-server jupyter-notebook
+run-all: run ##@Development Start the MLflow server (Docker) and Jupyter Lab
+	$(MAKE) jupyter-notebook
 
 hooks: ##@Development Install the pre-commit hooks (needs a git repository)
 	$(UV_RUN) pre-commit install
