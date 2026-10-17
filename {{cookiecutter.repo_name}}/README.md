@@ -29,7 +29,7 @@ All code lives in `src/`. The entry points (`main.py`, `run.py`, `MLProject`, `c
 ```
 src/
   core/        Abstractions the rest of the code builds on (the store, ...)
-  libs/        Building blocks a step chooses to use: MLflow tracking, data transforms, EDA
+  libs/        Building blocks a step chooses to use: MLflow tracking, StepRunner, EDA
   utils/       Small generic helpers: config files, logging, file operations
   steps/       Pipeline steps, one MLflow project per folder (`make step`)
   serving/     Serving code (APIs, batch scoring)

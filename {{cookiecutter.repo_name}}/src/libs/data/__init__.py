@@ -1,1 +1,1 @@
-"""Shared data helpers: config-driven transforms and EDA."""
+"""Exploratory data analysis helpers (reports, plots, MLflow dataset logging)."""

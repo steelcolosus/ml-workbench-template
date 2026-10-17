@@ -36,7 +36,7 @@ src/
   libs/        Building blocks a step or main.py chooses to use
     pipeline.py  StepRunner: runs the steps from main.py
     tracking.py  MLflow setup: tracking URI, runs, step environments, model registry
-    data/        transforms.py (config-driven DataFrame transforms), eda.py (reports)
+    data/        eda.py: EDA reports, plots and MLflow dataset logging
   utils/       Small generic helpers with no project knowledge
     config.py    Loading and writing config files
     log.py       Logging setup
@@ -74,7 +74,7 @@ flowchart LR
 | Package | Contains | Decide by asking | May import |
 |---|---|---|---|
 | `core` | Abstractions other code subclasses or implements, plus the machinery that works through them | "Will other code extend this?" | `utils` |
-| `libs` | Building blocks tied to a specific tool (MLflow, pandas transforms, EDA libraries) | "Is this an integration or a reusable piece a step opts into?" | `core`, `utils` |
+| `libs` | Building blocks tied to a specific tool (MLflow, EDA libraries) | "Is this an integration or a reusable piece a step opts into?" | `core`, `utils` |
 | `utils` | Generic helpers that would make sense in any Python project | "Does this know nothing about the project?" | nothing internal |
 | `serving` | The API | | `libs`, `core`, `utils` |
 | `steps` | Pipeline steps (scripts run by MLflow) | | everything; nothing imports a step |
@@ -228,15 +228,7 @@ Extension points:
 
 ### libs.data
 
-`transforms.py` holds config-driven pandas transforms. Each takes a DataFrame and a config section with this shape:
-
-| Function | Config keys |
-|---|---|
-| `apply_filters(data, config)` | `filters: [{column, value}]` keeps rows where `column == value`; `exclude_suffixes: [...]` drops columns ending with them. Both keys are required (use `[]`). |
-| `apply_aggregations(data, config)` | `groupby: [...]`, `aggregations: [{column, name, aggfunc}]`, optional `date_columns: [...]` (grouped by date) and `custom_functions: [{name, condition, true_value, false_value}]` usable as `aggfunc` (true_value when any value equals `condition`). |
-| `generate_custom_features(data, config)` | `custom_features: [{operation, name, ...}]` with `subtract` (`columns`), `divide` (`columns`, optional `fillna`; 0 when dividing by 0), `fillna` (`value`), `diff` (`column`, `fillna`), `rolling_mean` (`column`, `window`). |
-| `generate_date_features(data, config)` | `date_columns: [first is parsed]`, `date_features: [{operation, name, column}]` with `dayofweek`, `is_weekend` (on a dayofweek column), `month`, `quarter`, `year`. |
-| `convert_to_date(data, columns)` | Parses the columns as dates. |
+Data manipulation lives in each project's steps (pandas or dask directly); `libs.data` only has exploration helpers.
 
 `eda.py` holds exploration helpers: `log_dataset(data, path, name, context)` (logs an MLflow dataset input), `describe_data(data, name)` (logs `describe()` as a JSON artifact), `generate_eda_report(data, title, output_path)` (ydata-profiling HTML) and `generate_heatmap(data, output_path)` (correlation heatmap). The report and plot functions write to a path, so use them as store writers:
 

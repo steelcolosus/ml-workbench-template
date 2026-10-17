@@ -22,7 +22,7 @@ services:
   # and set AWS_ENDPOINT_URL in .env (see example.env).
   s3-local:
     container_name: ml-s3-local
-    image: motoserver/moto:latest
+    image: motoserver/moto:5.2.4
     profiles: ["s3-local"]
     ports:
       - ${S3_LOCAL_PORT:-9000}:5000

@@ -42,7 +42,7 @@ make help       # every target
 ```
 src/
   core/        Abstractions the rest builds on: Store, Step, CustomModel
-  libs/        Building blocks a step chooses to use: MLflow tracking, StepRunner, data transforms, EDA
+  libs/        Building blocks a step chooses to use: MLflow tracking, StepRunner, EDA
   utils/       Generic helpers: config files, logging, file operations
   steps/       Pipeline steps, one MLflow project per folder
   serving/     Serving code (APIs, batch scoring)
