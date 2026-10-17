@@ -18,7 +18,9 @@ requires-python = ">={{cookiecutter.python_version}}"
 # Your .venv gets everything (`make venv` runs `uv sync --all-extras`).
 dependencies = [
     "boto3",
-    "mlflow>=3",
+    # The MLflow client (runs, models, projects) without the server's
+    # dependencies; the full package is in the tracking-server extra
+    "mlflow-skinny>=3",
     "omegaconf",
     "pandas",
     "pyarrow",
@@ -39,6 +41,12 @@ pipeline = [
 serving = [
     "fastapi",
     "uvicorn",
+]
+# The MLflow tracking server (the mlflow image, `make mlflow-server`) and local
+# SQLite tracking (launcher.local=true), which need the full mlflow package
+tracking-server = [
+    "mlflow>=3",
+    "psycopg[binary]",
 ]
 
 [dependency-groups]
@@ -63,14 +71,9 @@ eda = [
     "seaborn",
     "ydata-profiling",
 ]
-# `make mlflow-server` with the PostgreSQL backend
-tracking-server = [
-    "psycopg2-binary",
-]
-
 [tool.uv]
 # `uv sync` and `uv run` install every group; `uv sync --no-group eda` skips one
-default-groups = ["test", "dev", "notebook", "eda", "tracking-server"]
+default-groups = ["test", "dev", "notebook", "eda"]
 
 [build-system]
 requires = ["hatchling"]
