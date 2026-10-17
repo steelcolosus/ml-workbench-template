@@ -330,7 +330,7 @@ model.save(store, "price_model", sample=X.head())    # logs it to the run and sa
 loaded = CustomModel.load(store, "price_model")       # downloads it first when missing and sync is on
 ```
 
-`save` infers the signature by predicting on `sample`. `log_model=False` skips logging to MLflow, `sync=False` keeps the saved copy local and `location=` picks another store location. To register a logged model, use `libs.tracking.register_model`.
+`save` infers the signature by predicting on `sample`. Unlike the store's own saves, it keeps the saved copy local by default: pass `sync=True` to upload it as well when `store.sync_s3` is on (for example so a serving image elsewhere can download it). `log_model=False` skips logging to MLflow and `location=` picks another store location. To register a logged model, use `libs.tracking.register_model`.
 
 ## Serving
 

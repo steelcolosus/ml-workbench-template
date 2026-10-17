@@ -33,13 +33,15 @@ class CustomModel(mlflow.pyfunc.PythonModel):
         code_paths: list = None,
         log_model: bool = True,
         params: dict = None,
-        sync: bool = True,
+        sync: bool = False,
     ) -> ModelInfo | None:
         """
-        Save the model to `<location>/<name>` through the store (uploaded when
-        store.sync_s3 is on, unless sync=False) and, if `log_model`, log it to the
-        active MLflow run. The signature is inferred by predicting on `sample`,
-        which is also stored as the input example.
+        Save the model to `<location>/<name>` through the store and, if
+        `log_model`, log it to the active MLflow run. The saved copy stays local
+        unless sync=True (uploaded when store.sync_s3 is on): models are large
+        and MLflow already keeps the logged copy, so uploading is opt-in. The
+        signature is inferred by predicting on `sample`, which is also stored as
+        the input example.
 
         Returns the ModelInfo of the logged model, or None.
         """

@@ -209,7 +209,8 @@ Extension points:
 
 `CustomModel` extends `mlflow.pyfunc.PythonModel`. Subclass it and implement `predict(self, context, model_input, params=None)`.
 
--   `save(store, name, sample, location="models", code_paths=None, log_model=True, params=None, sync=True)` infers the signature by predicting on `sample` (also stored as the input example), logs the model to the active MLflow run (`log_model`) and saves it through the store to `<location>/<name>`. Returns the `ModelInfo`, or `None` without logging.
+-   `save(store, name, sample, location="models", code_paths=None, log_model=True, params=None, sync=False)` infers the signature by predicting on `sample` (also stored as the input example), logs the model to the active MLflow run (`log_model`) and saves it through the store to `<location>/<name>`. Returns the `ModelInfo`, or `None` without logging.
+-   Unlike `save_data` and `save_artifact`, the saved copy stays local by default: models are large and MLflow already keeps the logged one. Pass `sync=True` to upload it too when `store.sync_s3` is on.
 -   `CustomModel.load(store, name, location="models")` loads any pyfunc model saved there, downloading it first when missing and sync is on.
 
 ### libs.pipeline
@@ -312,7 +313,7 @@ store.save_artifact("analytics", "eda/report.html",
 
 **Turn on S3**: set `AWS_BUCKET` (and a profile or keys) in `.env`, then `make pipeline ARGS="store.sync_s3=true"`, or set `sync_s3: true` in `config.yaml`. To try it without AWS, use the local S3 server (README > Local S3).
 
-**Train and serve a model**: in a step, subclass `CustomModel` and call `model.save(self.store, "price_model", sample=X.head())`; then `SERVING_MODEL_NAME=price_model make serve` and open http://localhost:8000/docs.
+**Train and serve a model**: in a step, subclass `CustomModel` and call `model.save(self.store, "price_model", sample=X.head())` (add `sync=True` when serving runs somewhere that downloads it from S3); then `SERVING_MODEL_NAME=price_model make serve` and open http://localhost:8000/docs.
 
 **Add an API endpoint**: add a route to `src/serving/routes.py` with its request and response models in `schemas.py`; use the `LoadedModel` dependency when it needs the model. Test it with `TestClient(create_app(Settings(...), store))`.
 
