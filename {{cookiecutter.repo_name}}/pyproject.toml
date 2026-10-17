@@ -9,8 +9,8 @@ requires-python = ">={{cookiecutter.python_version}}"
 # - base: what src/core, src/libs and src/utils import; installed everywhere
 # - extras (optional-dependencies): runtime sets an image or a step environment
 #   asks for, e.g. `uv sync --extra serving` or `pip install -e ".[pipeline]"`
-# - groups (dependency-groups): only for working on the project; never in images
-#   except the test image
+# - groups (dependency-groups): only for working on the project (your machine
+#   and CI); never in images
 # Your .venv gets everything (`make venv` runs `uv sync --all-extras`).
 dependencies = [
     "boto3",

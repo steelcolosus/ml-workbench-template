@@ -27,19 +27,13 @@ services:
     ports:
       - ${S3_LOCAL_PORT:-9000}:5000
 
-  # The project's images (docker/Dockerfile). They aren't started by `make` /
-  # `docker compose up`: use `make docker-pipeline`, `make docker-serve` and
-  # `make docker-test`.
+  # The project's images, built with bake (docker/docker-bake.hcl). They aren't
+  # started by `make` / `docker compose up`: `make docker-pipeline` and
+  # `make docker-serve` build them and run them here.
   pipeline:
     profiles: ["pipeline"]
     image: {{cookiecutter.repo_name}}:pipeline
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: pipeline
-      args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
-        UV_VERSION: ${UV_VERSION:-0.6.6}
+    pull_policy: never
     env_file:
       - path: ${ENV_FILE:-.env}
         required: false
@@ -58,13 +52,7 @@ services:
   serving:
     profiles: ["serving"]
     image: {{cookiecutter.repo_name}}:serving
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: serving
-      args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
-        UV_VERSION: ${UV_VERSION:-0.6.6}
+    pull_policy: never
     env_file:
       - path: ${ENV_FILE:-.env}
         required: false
@@ -75,14 +63,3 @@ services:
     volumes:
       - ./models:/app/models
       - ${HOME}/.aws:/home/app/.aws:ro
-
-  test:
-    profiles: ["test"]
-    image: {{cookiecutter.repo_name}}:test
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: test
-      args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-{{cookiecutter.python_version}}}
-        UV_VERSION: ${UV_VERSION:-0.6.6}

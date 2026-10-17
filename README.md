@@ -6,7 +6,7 @@ Generates an ML project with:
 -   a Hydra-configured pipeline whose steps are MLflow projects, each a subclass of `core.step.Step`;
 -   a local-first data store with optional S3 sync (`core.store.Store`);
 -   a FastAPI app that serves the project's models (`src/serving`);
--   a Dockerfile with separate pipeline, serving and test images, each with only its dependencies;
+-   pipeline and serving Docker images, one Dockerfile each, built with `docker buildx bake`, each with only its dependencies;
 -   [uv](https://docs.astral.sh/uv/) for dependencies, ruff, pre-commit, import-linter and pytest.
 
 ## Usage
@@ -51,7 +51,7 @@ templates/
 tests/
 docs/ARCHITECTURE.md
 makefiles/     Targets by area; the Makefile keeps the main commands
-docker/        Dockerfile (pipeline, serving and test images)
+docker/        One Dockerfile per image (pipeline, serving), a shared base and docker-bake.hcl
 main.py  run.py  MLProject  config.yaml  pyproject.toml  Makefile  docker-compose.yml
 ```
 

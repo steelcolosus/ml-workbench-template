@@ -57,8 +57,9 @@ The `Makefile` holds the main commands; the rest live in `makefiles/`, one file 
 -   `step`: Create a new MLflow step in `src/steps/` from the step template.
 -   `serve`: Run the API in `src/serving` with auto-reload.
 -   `test`: Run the tests.
--   `image`: Build an image (`TARGET=pipeline`, `serving` or `test`).
--   `docker-pipeline`, `docker-serve`, `docker-test`: Run the pipeline, the API or the tests in their image.
+-   `image`: Build one image (`TARGET=pipeline` or `serving`).
+-   `images`: Build every image.
+-   `docker-pipeline`, `docker-serve`: Build and run the pipeline or the API in its image.
 -   `lint`: Check the code with ruff (lint and format) and the package layers with import-linter.
 -   `format`: Fix lint issues and format the code with ruff.
 -   `hooks`: Install the pre-commit hooks (ruff on every commit).
@@ -98,13 +99,13 @@ Dependencies live in `pyproject.toml`, split by where they are installed, and th
 | base | `[project] dependencies` | What `src/core`, `src/libs` and `src/utils` import | everywhere | `uv add scipy` |
 | `pipeline` | extra | main.py, run.py and the steps (Hydra, dask, ...) | pipeline image, step environments | `uv add --optional pipeline lightgbm` |
 | `serving` | extra | The API in `src/serving` (FastAPI, uvicorn) | serving image | `uv add --optional serving orjson` |
-| `test` | group | pytest, moto, httpx | test image | `uv add --group test pytest-cov` |
+| `test` | group | pytest, moto, httpx | your machine, CI | `uv add --group test pytest-cov` |
 | `dev` | group | ruff, pre-commit, import-linter, cookiecutter | your machine | `uv add --group dev mypy` |
 | `notebook` | group | Jupyter Lab and widgets | your machine | `uv add --group notebook plotly` |
 | `eda` | group | ydata-profiling, seaborn, matplotlib | your machine | `uv add --group eda sweetviz` |
 | `tracking-server` | group | psycopg2 for `make mlflow-server` | your machine | |
 
-Extras are part of the package: an image or a step environment asks for them (`uv sync --extra serving`, `pip install -e ".[pipeline]"`). Groups are only for working on the project and never reach an image, except the test image.
+Extras are part of the package: an image or a step environment asks for them (`uv sync --extra serving`, `pip install -e ".[pipeline]"`). Groups are only for working on the project and never reach an image.
 
 Your `.venv` gets everything: `make venv` runs `uv sync --all-extras`, and the targets run through `uv run --all-extras`. `uv add` updates `pyproject.toml`, `uv.lock` and `.venv` at once. Run `make outdated` to see what can be upgraded and `make upgrade` to do it.
 
@@ -354,23 +355,33 @@ Interactive documentation is generated from the code at `/docs` (Swagger UI) and
 
 ## Docker
 
-`docker/Dockerfile` builds one image per target, each with only the dependency set it needs (see [Dependencies](#dependencies)):
+Each image has its own Dockerfile in `docker/`, with only the dependency set it needs (see [Dependencies](#dependencies)):
 
-| Target | Installs | Runs | Make |
+```
+docker/
+  docker-bake.hcl                    the build plan: every image, its tags and shared arguments
+  base.Dockerfile                    shared stages: `runtime` (Python, /app, .venv on PATH) and `builder` (runtime + uv)
+  pipeline.Dockerfile                base + pipeline extra; runs main.py
+  pipeline.Dockerfile.dockerignore   the files the pipeline image gets
+  serving.Dockerfile                 base + serving extra; runs the API
+  serving.Dockerfile.dockerignore    the files the serving image gets
+```
+
+| Image | Installs | Runs | Make |
 |---|---|---|---|
 | `pipeline` | base + `pipeline` extra | `python main.py`; arguments are Hydra overrides | `make docker-pipeline STEPS=... ARGS="..."` |
-| `serving` | base + `serving` extra | the API on port 8000, as a non-root user | `make docker-serve SERVING_MODEL_NAME=price_model` |
-| `test` | base + every extra + `test` group | `pytest` | `make docker-test` |
+| `serving` | base + `serving` extra | the API on port 8000, as a non-root user, with a health check on `/health` | `make docker-serve SERVING_MODEL_NAME=price_model` |
 
-`make image TARGET=serving` builds one image (`{{cookiecutter.repo_name}}:serving`). The `docker-*` targets build and run them through the `pipeline`, `serving` and `test` services in `docker-compose.yml`, which `make` / `docker compose up` don't start.
+`make image TARGET=serving` builds one image (`{{cookiecutter.repo_name}}:serving`) and `make images` builds both. The `docker-*` targets build the image and run it through its service in `docker-compose.yml` (which `make` / `docker compose up` don't start).
 
 How it works:
 
--   `--target` picks the image. Docker builds that stage and only the stages it copies from: `pipeline` copies from `pipeline-deps`, which runs `uv sync --extra pipeline`, so the serving and test dependencies are never installed in it.
--   Each `*-deps` stage installs the dependencies from `uv.lock` before copying the code, so that layer is reused until `pyproject.toml` or `uv.lock` change. The final images contain only Python, `.venv` and the code (no uv or caches).
--   The build context is the project root. `docker/Dockerfile.dockerignore` (Docker reads the ignore file named after the Dockerfile) keeps `.venv`, `data/`, `models/`, `.env` files, notebooks and local tracking out of the images; the compose services mount `data/` and `models/` instead.
--   To give an image its own base or files later, add `docker/<image>.Dockerfile` with its own `docker/<image>.Dockerfile.dockerignore`, and point its compose service and make target at it.
--   The images need `uv.lock` (`make venv` creates it) and use the same Python (`.python-version`) and uv as your machine.
+-   The images are built with [bake](https://docs.docker.com/build/bake/) (`docker buildx bake`, part of Docker): `docker/docker-bake.hcl` describes each image (its Dockerfile, tags, and the Python and uv versions, which the Makefile passes from your machine), like `docker-compose.yml` describes containers. `make image` / `make images` run it.
+-   The shared setup is written once in `base.Dockerfile`. Bake builds its `builder` and `runtime` stages and hands them to each image's Dockerfile, which starts with `FROM builder` and `FROM runtime`.
+-   Each Dockerfile installs the dependencies from `uv.lock` before copying the code, so that layer is reused until `pyproject.toml` or `uv.lock` change. The final images contain only Python, `.venv` and the code (no uv or caches).
+-   The build context is the project root, and Docker reads the ignore file named after each Dockerfile. Both ignore files list the files their image gets and leave everything else out: the serving image has no steps, tests or pipeline entry points, and neither image has `.venv`, `data/`, `models/` or `.env` files (the compose services mount `data/` and `models/`).
+-   To add an image: write `docker/<name>.Dockerfile` (starting `FROM builder`) and its `.dockerignore`, add a `target "<name>"` to `docker-bake.hcl` (inheriting `_image`), and a service in `docker-compose.yml` if you want to run it from `make`.
+-   The images need `uv.lock` (`make venv` creates it). Tests don't have an image: run `make test`, which is what CI should run too.
 
 Running the pipeline in Docker:
 
